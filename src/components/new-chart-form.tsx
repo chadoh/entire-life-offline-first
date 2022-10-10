@@ -1,9 +1,5 @@
 import React from 'react'
-
-interface Chart {
-  name: string
-  dob: string // iso8601 ie 1990-01-01
-}
+import { db } from '../database'
 
 export default function NewChartForm() {
   return (
@@ -11,10 +7,10 @@ export default function NewChartForm() {
       e.preventDefault()
       const inputs = (e.target as HTMLFormElement).elements as unknown as { name: HTMLInputElement, dob: HTMLInputElement }
       // save to localStorage
-      console.log({
+      db.addChart({
         name: inputs.name.value,
         dob: inputs.dob.value,
-      } as Chart)
+      })
     }}>
       <label>
         Name
