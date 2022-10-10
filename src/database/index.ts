@@ -1,5 +1,6 @@
 import { get, set } from './localStorage';
 import type { Chart, Data, CallbackFunction } from './types'
+import { v4 as uuid } from 'uuid'
 
 const KEY = 'entire-life'
 const SAVE_SUCCESS = 'DatabaseSaveSuccessEvent';
@@ -25,11 +26,20 @@ class Database {
     }
   }
 
-  addChart(chart: Chart) {
+  addChart(chart: Omit<Chart, 'id'>) {
     const data = this.fetchData()
+    const id = uuid()
+
     this.setData({
       ...data,
-      charts: [...(data.charts ?? []), chart]
+      charts: {
+        ...data.charts,
+        [id]: { id, ...chart }
+      },
+      chartIds: [
+        ...(data.chartIds ?? []),
+        id
+      ]
     })
   }
 
