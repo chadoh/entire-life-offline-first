@@ -1,6 +1,5 @@
 import { get, set } from './localStorage';
 import type { Chart, Data } from './types'
-import { v4 as uuid } from 'uuid'
 
 export * from './types'
 export * from './hooks'
@@ -49,17 +48,22 @@ class Database {
 
   addChart(chart: Omit<Chart, 'id'>) {
     const data = this.fetchData()
-    const id = uuid()
+
+    const normalized = chart.name.trim()
+
+    if (data.charts[normalized]) {
+      throw new Error(`You already have a chart for ${normalized}; please name this one something unique.`)
+    }
 
     this.setData({
       ...data,
       charts: {
         ...data.charts,
-        [id]: { id, ...chart }
+        [chart.name]: chart
       },
       chartIds: [
         ...(data.chartIds ?? []),
-        id
+        chart.name
       ]
     })
   }

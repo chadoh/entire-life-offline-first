@@ -1,10 +1,10 @@
 import React from 'react'
 import type { Chart } from '../database'
 
-export default function ChartCard({ id, name, dob }: Chart) {
+export default function ChartCard({ name, dob }: Chart) {
 	return (
 		<li>
-			<a href={`#/${id}`}>
+			<a href={`#/${name}`}>
 				<h2>
 					{name}
 					<span>&rarr;</span>

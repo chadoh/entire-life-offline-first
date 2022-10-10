@@ -1,5 +1,4 @@
 export interface Chart {
-  id: string
   name: string
   dob: string // iso8601 ie 1990-01-01
 }

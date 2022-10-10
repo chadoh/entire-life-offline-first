@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { db, DataUpdatedEvent, SaveFailureEvent } from '.'
 import type { Data } from './types'
 
-export function useDB(): Data & { errors: string[] } {
+export function useData(): Data & { errors: string[] } {
   const [data, setData] = useState(db.fetchData())
   const [errors, setErrors] = useState([] as string[])
   function updateData(e: DataUpdatedEvent) {
