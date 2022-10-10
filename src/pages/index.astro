@@ -1,12 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import NewChartForm from '../components/new-chart-form';
+import App from '../components/app'
 ---
 
 <Layout title="Entire.Life">
 	<main>
 		<h1>Welcome to <span class="text-gradient">Entire.Life</span></h1>
-		<NewChartForm client:load />
+		<App client:only="react" />
 	</main>
 </Layout>
 

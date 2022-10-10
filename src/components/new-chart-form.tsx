@@ -11,6 +11,7 @@ export default function NewChartForm() {
         name: inputs.name.value,
         dob: inputs.dob.value,
       })
+      inputs.name.value = ''
     }}>
       <label>
         Name
