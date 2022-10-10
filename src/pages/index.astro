@@ -1,23 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import NewChartForm from '../components/new-chart-form';
 ---
 
 <Layout title="Entire.Life">
 	<main>
 		<h1>Welcome to <span class="text-gradient">Entire.Life</span></h1>
-		<!-- <form onSubmit={(e) => {
-			e.preventDefault()
-			console.log(e.target.inputs)
-		}}>
-			<label>
-				Name
-				<input id="name" />
-			</label>
-			<label>
-				Date of birth
-				<input type="date" defaultValue="1990-01-01" id="dob" />
-			</label>
-		</form> -->
+		<NewChartForm client:load />
 	</main>
 </Layout>
 
