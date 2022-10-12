@@ -1,6 +1,18 @@
+export interface Entry {
+  title: string
+  date: string /// iso8601 ie 1990-01-01
+  description?: string
+  emoji?: string
+}
+
 export interface Chart {
   name: string
-  dob: string // iso8601 ie 1990-01-01
+  entries: Entry[]
+}
+
+export interface NewChart {
+  name: string
+  dob: string // iso8601
 }
 
 export interface Data {

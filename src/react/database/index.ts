@@ -1,5 +1,5 @@
 import { get, set } from './localStorage';
-import type { Chart, Data } from './types'
+import type { Data, Entry, NewChart } from './types'
 
 export * from './types'
 export * from './hooks'
@@ -46,10 +46,10 @@ class Database {
     }
   }
 
-  addChart(chart: Omit<Chart, 'id'>) {
+  addChart({ name, dob }: NewChart) {
     const data = this.fetchData()
 
-    const normalized = chart.name.trim()
+    const normalized = name.trim()
 
     if (data.charts[normalized]) {
       throw new Error(`You already have a chart for ${normalized}; please name this one something unique.`)
@@ -59,12 +59,37 @@ class Database {
       ...data,
       charts: {
         ...data.charts,
-        [chart.name]: chart
+        [name]: {
+          name,
+          entries: [{
+            title: 'Hello World!',
+            date: dob,
+          }]
+        }
       },
       chartIds: [
         ...(data.chartIds ?? []),
-        chart.name
+        name
       ]
+    })
+  }
+
+  addEntry(toChart: string, entry: Entry) {
+    const data = this.fetchData()
+    const chart = data.charts[toChart]
+    if (!chart) {
+      throw new Error(`No chart named "${toChart}"!`)
+    }
+
+    this.setData({
+      ...data,
+      charts: {
+        ...data.charts,
+        [toChart]: {
+          ...chart,
+          entries: [...chart.entries, entry],
+        }
+      }
     })
   }
 
