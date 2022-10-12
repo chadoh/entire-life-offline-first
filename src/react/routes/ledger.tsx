@@ -5,35 +5,39 @@ import {
 } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
 import { usePrev } from '../hooks'
+import { get, addEntry, Entry } from '../data'
 
-import { db, Chart, Entry } from '../database'
+type Data = {
+  name: string
+  entries: Entry[]
+}
 
-export const loader: LoaderFunction = async ({ params }): Promise<Chart> => {
-  const { charts } = db.fetchData()
-  const chart = charts[params.chartName as string]
-  if (!chart) {
+export const loader: LoaderFunction = async ({ params }): Promise<Data> => {
+  const name = params.ledgerName as string
+  const entries = await get(name)
+  if (!entries) {
     throw new Response('', {
       status: 404,
       statusText: 'Not Found',
     })
   }
-  return chart
+  return { name, entries }
 }
 
 export const action: ActionFunction = async ({ request, params }) => {
-  const chartName = params.chartName as string
+  const ledgerName = params.ledgerName as string
   const formData = await request.formData()
   const entry = Object.fromEntries(formData) as unknown as Entry
-  db.addEntry(chartName, entry)
+  await addEntry(ledgerName, entry)
 }
 
 function Chart() {
-  const chart = useLoaderData() as Chart
+  const { name, entries } = useLoaderData() as Data
   return (
     <>
-      <h1>{chart.name}</h1>
+      <h1>{name}</h1>
       <ul>
-        {chart.entries.map((entry, i) => (
+        {entries.map((entry, i) => (
           <li key={i}>
             <header>
               <h2>
@@ -42,7 +46,7 @@ function Chart() {
               </h2>
               <time dateTime={entry.date}>{entry.date}</time>
             </header>
-            {entry.description && <p>{entry.description}</p>}
+            {entry.body && <p>{entry.body}</p>}
           </li>
         ))}
       </ul>
@@ -80,8 +84,8 @@ function NewEntry() {
           <label htmlFor="emoji">Emoji</label>
         </p>
         <p>
-          <input name="description" />
-          <label htmlFor="description">Description</label>
+          <input name="body" />
+          <label htmlFor="body">Body</label>
         </p>
         <button>
           Save

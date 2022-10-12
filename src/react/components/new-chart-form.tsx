@@ -1,9 +1,7 @@
 import React from 'react'
 import { Form } from 'react-router-dom'
-import { useData } from '../database'
 
-export default function NewChartForm() {
-  const { charts } = useData()
+export default function NewChartForm({ ledgers }: { ledgers: string[] }) {
   const [error, setError] = React.useState<string>()
 
   return (
@@ -12,7 +10,7 @@ export default function NewChartForm() {
         Name
         <input name="name" autoFocus onChange={(e) => {
           const val = (e.target as HTMLInputElement).value.trim()
-          if (charts[val]) {
+          if (ledgers.indexOf(val) > -1) {
             setError(`You already have a chart for ${val}; please use a unique name.`)
           } else {
             setError(undefined)

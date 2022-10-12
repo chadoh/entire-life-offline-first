@@ -4,7 +4,7 @@ import {
   RouterProvider,
 } from 'react-router-dom'
 import * as root from './routes/root'
-import * as chart from './routes/chart'
+import * as ledger from './routes/ledger'
 import ErrorPage from './routes/error-page'
 
 const router = createHashRouter([
@@ -17,8 +17,8 @@ const router = createHashRouter([
         errorElement: <ErrorPage />,
         children: [
           {
-            ...chart,
-            path: ':chartName',
+            ...ledger,
+            path: ':ledgerName',
           }
         ]
       }

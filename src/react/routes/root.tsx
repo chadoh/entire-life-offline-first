@@ -3,38 +3,41 @@ import {
   useLoaderData,
   redirect,
   Outlet,
+  NavLink,
 } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
 import NewChartForm from '../components/new-chart-form'
-import ChartCard from '../components/chart-card'
-import { db, Data as AllData, Chart, NewChart } from '../database'
+import { addLedger, getLedgers } from '../data'
 
-type Data = Pick<AllData, 'charts' | 'chartIds'>
-
-export const loader: LoaderFunction = async (): Promise<Data> => {
-  const { charts, chartIds } = db.fetchData()
-  return { charts, chartIds }
+export const loader: LoaderFunction = async (): Promise<string[]> => {
+  return getLedgers()
 }
 
 export const action: ActionFunction = async ({ request }) => {
   const formData = await request.formData()
-  const newChart = Object.fromEntries(formData) as unknown as NewChart
-  db.addChart(newChart)
-  return redirect(`/${newChart.name}`)
+  const newLedger = Object.fromEntries(formData) as unknown as Parameters<typeof addLedger>[0]
+  await addLedger(newLedger)
+  return redirect(`/${newLedger.name}`)
 }
 
 function App() {
-  const { charts, chartIds } = useLoaderData() as Awaited<Data>
+  const ledgers = useLoaderData() as Awaited<string[]>
   return (
     <>
-      {chartIds && chartIds.length > 0 && (
-        <ul>
-          {chartIds.map(id => (
-            <ChartCard key={id} {...charts[id] as Chart} />
-          ))}
-        </ul>
-      )}
-      <NewChartForm />
+      <nav>
+        {ledgers.map(name => (
+          <NavLink
+            key={name}
+            to={name}
+            className={({ isActive, isPending }) =>
+              isActive ? 'active' : isPending ? 'pending' : ''
+            }
+          >
+            {name}
+          </NavLink>
+        ))}
+      </nav>
+      <NewChartForm ledgers={ledgers} />
       <Outlet />
     </>
   )
