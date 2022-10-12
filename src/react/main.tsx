@@ -5,6 +5,7 @@ import {
 } from 'react-router-dom'
 import * as root from './routes/root'
 import * as ledger from './routes/ledger'
+import * as newLedger from './routes/new'
 import ErrorPage from './routes/error-page'
 
 const router = createHashRouter([
@@ -17,9 +18,17 @@ const router = createHashRouter([
         errorElement: <ErrorPage />,
         children: [
           {
+            ...newLedger,
+            index: true
+          },
+          {
             ...ledger,
             path: ':ledgerName',
-          }
+          },
+          {
+            ...newLedger,
+            path: '/new'
+          },
         ]
       }
     ]

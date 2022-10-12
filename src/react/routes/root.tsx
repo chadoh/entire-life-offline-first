@@ -1,43 +1,44 @@
 import React from 'react'
 import {
   useLoaderData,
-  redirect,
   Outlet,
   NavLink,
 } from 'react-router-dom'
-import type { ActionFunction, LoaderFunction } from '@remix-run/router'
-import NewChartForm from '../components/new-chart-form'
-import { addLedger, getLedgers } from '../data'
+import type { LoaderFunction } from '@remix-run/router'
+import { getLedgers } from '../data'
 
 export const loader: LoaderFunction = async (): Promise<string[]> => {
   return getLedgers()
-}
-
-export const action: ActionFunction = async ({ request }) => {
-  const formData = await request.formData()
-  const newLedger = Object.fromEntries(formData) as unknown as Parameters<typeof addLedger>[0]
-  await addLedger(newLedger)
-  return redirect(`/${newLedger.name}`)
 }
 
 function App() {
   const ledgers = useLoaderData() as Awaited<string[]>
   return (
     <>
-      <nav>
-        {ledgers.map(name => (
+      {ledgers.length > 0 && (
+        <nav>
+          {ledgers.map(name => (
+            <NavLink
+              key={name}
+              to={name}
+              style={({ isActive, isPending }) => ({
+                color: isActive ? 'inherit' : isPending ? 'yellow' : 'blue',
+                marginRight: '1em',
+              })}
+            >
+              {name}
+            </NavLink>
+          ))}
           <NavLink
-            key={name}
-            to={name}
-            className={({ isActive, isPending }) =>
-              isActive ? 'active' : isPending ? 'pending' : ''
-            }
+            to="/new"
+            style={({ isActive, isPending }) => ({
+              color: isActive ? 'inherit' : isPending ? 'yellow' : 'blue'
+            })}
           >
-            {name}
+            + New
           </NavLink>
-        ))}
-      </nav>
-      <NewChartForm ledgers={ledgers} />
+        </nav>
+      )}
       <Outlet />
     </>
   )
