@@ -5,7 +5,7 @@ import {
   NavLink,
 } from 'react-router-dom'
 import type { LoaderFunction } from '@remix-run/router'
-import { getLedgers } from '../data'
+import { getLedgers } from '../../data'
 
 export const loader: LoaderFunction = async (): Promise<string[]> => {
   return getLedgers()

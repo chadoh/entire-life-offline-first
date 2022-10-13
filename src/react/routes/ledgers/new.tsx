@@ -1,7 +1,7 @@
 import React from 'react'
 import { Form, useLoaderData, redirect } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
-import { addLedger, getLedgers } from '../data'
+import { addLedger, getLedgers } from '../../data'
 
 export const loader: LoaderFunction = async (): Promise<string[]> => {
   return getLedgers()

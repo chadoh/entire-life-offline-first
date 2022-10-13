@@ -2,7 +2,7 @@ import React from 'react'
 import { useRouteError } from "react-router-dom";
 import { ErrorResponse } from "@remix-run/router"
 
-export default function ErrorPage() {
+function ErrorPage() {
   const error = useRouteError();
   console.error(error);
   const message = error instanceof ErrorResponse
@@ -21,3 +21,5 @@ export default function ErrorPage() {
     </div>
   );
 }
+
+export default <ErrorPage />
