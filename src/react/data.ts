@@ -113,3 +113,36 @@ async function clearOldestRecentDeletion() {
     await store.setItem(RECENTLY_DELETED, current.slice(1))
   }
 }
+
+/**
+ * Delete an entry in a ledger, given its index in the ledger.
+ * 
+ * In an attempt to make entries understandable when viewed in Google Sheets, they have no unique IDs. The index-based ID system is brittle, and can break in unexpected ways! This function tries to be careful, throwing errors if the entry can no longer be found, and keeping a backup around for a minute to enable easy undos.
+ */
+export async function deleteEntry(toLedger: string, entryId: number) {
+  const ledger = await get(toLedger)
+  if (!ledger) {
+    throw new Error(`No ledger named "${toLedger}"!`)
+  }
+
+  const oldEntry = ledger[entryId]
+  if (!oldEntry) {
+    throw new Error(`Cannot find existing entry #${entryId}! Someone else may have edited or deleted it while you had this page open. Refresh the page and try again.`)
+  }
+
+  await store.setItem(RECENTLY_DELETED, [
+    ...await get(RECENTLY_DELETED),
+    {
+      ledger: toLedger,
+      entry: oldEntry,
+      entryId,
+    }
+  ])
+
+  // clear recent deletion after one minute
+  setTimeout(clearOldestRecentDeletion, 60000)
+
+  store.setItem(toLedger, ledger.filter(
+    (_, i) => i !== entryId
+  ))
+}

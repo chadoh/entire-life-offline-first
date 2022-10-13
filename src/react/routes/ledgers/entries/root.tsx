@@ -1,5 +1,5 @@
 import React from 'react'
-import { useLoaderData, Outlet } from 'react-router-dom'
+import { useLoaderData, Form, Outlet, NavLink } from 'react-router-dom'
 import type { LoaderFunction } from '@remix-run/router'
 import { get, Entry } from '../../../data'
 
@@ -22,14 +22,43 @@ function Entries() {
       <ul>
         {entries.map((entry, i) => (
           <li key={i}>
-            <header>
+            <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h2>
                 {entry.emoji && `${entry.emoji} `}
                 {entry.title}
               </h2>
-              <time dateTime={entry.date}>{entry.date}</time>
+              <nav style={{ display: 'flex' }}>
+                <NavLink
+                  to={`edit/${i}`}
+                  style={({ isActive, isPending }) => ({
+                    color: isActive ? 'inherit' : isPending ? 'yellow' : 'blue',
+                  })}
+                >
+                  edit
+                </NavLink>
+                <Form
+                  method="post"
+                  action={`destroy/${i}`}
+                  onSubmit={(event) => {
+                    if (
+                      !confirm(
+                        "Please confirm you want to delete this record."
+                      )
+                    ) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  <button type="submit" style={{ display: 'inline-block', padding: 0, border: 'none', marginLeft: '0.5em', color: 'blue', fontSize: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}>
+                    delete
+                  </button>
+                </Form>
+              </nav>
             </header>
-            {entry.body && <p>{entry.body}</p>}
+            <p>
+              <time dateTime={entry.date}>{entry.date}</time>
+              {entry.body && <><br />{entry.body}</>}
+            </p>
           </li>
         ))}
       </ul>
