@@ -5,7 +5,6 @@ import react from "@astrojs/react";
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://chadoh.com',
-  base: '/entire-life-offline-first',
+  site: 'https://new.entire.life',
   integrations: [react()],
 });
