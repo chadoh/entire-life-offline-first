@@ -3,7 +3,8 @@ import {
   useLoaderData,
   Outlet,
   NavLink,
-  useLocation,
+  Link,
+  useParams,
 } from 'react-router-dom'
 import type { LoaderFunction } from '@remix-run/router'
 import { getLedgers } from '../../data'
@@ -14,23 +15,23 @@ export const loader: LoaderFunction = async (): Promise<string[]> => {
 
 function App() {
   const ledgers = useLoaderData() as Awaited<string[]>
-  const location = useLocation()
+  const params = useParams()
   return (
     <>
       {ledgers.length > 0 && (
         <nav>
           {ledgers.map(name => (
             <React.Fragment key={name}>
-              <NavLink
+              <Link
                 to={name}
-                style={({ isActive, isPending }) => ({
-                  color: isActive ? 'inherit' : isPending ? 'yellow' : 'blue',
+                style={{
+                  color: params.ledgerName === name ? 'inherit' : 'blue',
                   marginRight: '1em',
-                })}
+                }}
               >
                 {name}
-              </NavLink>
-              {new RegExp(`^/${name}`).test(location.pathname) && (
+              </Link>
+              {params.ledgerName === name && (
                 <NavLink
                   to={`${name}/edit`}
                   style={({ isActive, isPending }) => ({
