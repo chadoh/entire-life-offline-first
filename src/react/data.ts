@@ -55,11 +55,37 @@ export async function addLedger({ name, dob }: { name: string, dob: string /* is
     throw new Error(`The name "${normalized}" is reserved for internal use; please pick something else.`)
   }
 
-  store.setItem(name, [{
+  await store.setItem(name, [{
     title: 'Hello World!',
     emoji: '🐣',
     date: dob,
   }])
+}
+
+export async function updateLedger({ oldName, newName }: { oldName: string, newName: string }) {
+  const normalized = newName.trim()
+
+  // if hit "save" on unchanged form, return early without error
+  if (oldName === newName) return
+
+
+  if (await get(normalized)) {
+    throw new Error(`You already have a chart for ${normalized}; please name this one something unique.`)
+  }
+
+  if (reservedKeys.includes(normalized)) {
+    throw new Error(`The name "${normalized}" is reserved for internal use; please pick something else.`)
+  }
+
+  await store.setItem(newName, await get(oldName))
+  await store.removeItem(oldName)
+}
+
+export async function removeLedger(name: string) {
+  if (reservedKeys.includes(name)) {
+    throw new Error(`The name "${name}" is reserved for internal use; please pick something else.`)
+  }
+  await store.removeItem(name)
 }
 
 export async function addEntry(toLedger: string, entry: Entry) {
