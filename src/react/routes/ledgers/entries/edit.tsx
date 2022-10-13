@@ -38,7 +38,7 @@ export const action: ActionFunction = async ({ request, params }) => {
 
 function Edit() {
   const entry = useLoaderData() as Entry
-  return <Form {...entry} />
+  return <Form key={entry.title + entry.date} {...entry} />
 }
 
 export const element = <Edit />
