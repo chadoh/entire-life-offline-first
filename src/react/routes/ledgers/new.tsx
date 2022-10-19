@@ -4,8 +4,12 @@ import type { ActionFunction, LoaderFunction } from '@remix-run/router'
 import { addLedger, getLedgers } from '../../data'
 import Form from './form'
 
-export const loader: LoaderFunction = async (): Promise<string[]> => {
-  return getLedgers()
+export const loader: LoaderFunction = async ({ request }): Promise<string[] | Response> => {
+  const ledgers = await getLedgers()
+  if (ledgers.length === 0 || /new$/.test(request.url)) {
+    return ledgers
+  }
+  return redirect(`/${ledgers[0]}`)
 }
 
 export const action: ActionFunction = async ({ request }) => {
