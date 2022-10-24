@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom'
 import type { LoaderFunction } from '@remix-run/router'
 import { getLedgers } from '../../data'
+import Login from '../../components/login'
 
 export const loader: LoaderFunction = async (): Promise<string[]> => {
   return getLedgers()
@@ -55,6 +56,7 @@ function App() {
           >
             + New
           </NavLink>
+          <Login />
         </nav>
       )}
       <Outlet />
