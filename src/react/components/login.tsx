@@ -1,12 +1,76 @@
 import React from 'react'
-
-let tokenClient: google.accounts.oauth2.TokenClient
+import { WANTS_GOOGLE, set, get } from '../data'
 
 const scope = [
   'https://www.googleapis.com/auth/spreadsheets.readonly',
 ].join(' ');
 
 const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+
+let gapiLoaded = false
+
+/**
+ * Fetch Google API (gapi) by adding new `<script>` tag to page and then loading app's `gapi.client`.
+ * Returns immediately if `gapi` global is already available.
+ * Otherwise, will only return after everything's initialized.
+ */
+async function loadGapi(): Promise<typeof gapi> {
+  if (gapiLoaded) return gapi;
+
+  const gapiScript = document.createElement('script');
+  gapiScript.src = 'https://apis.google.com/js/api.js';
+  gapiScript.onload = () => {
+    gapi.load('client', async () => {
+      await gapi.client.init({
+        apiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
+        discoveryDocs: [DISCOVERY_DOC],
+      })
+      gapiLoaded = true
+    })
+  }
+  document.body.appendChild(gapiScript);
+
+  return new Promise((resolve) => {
+    const gapiChecker = setInterval(() => {
+      if (gapiLoaded) {
+        clearInterval(gapiChecker)
+        resolve(gapi)
+      }
+    }, 50)
+  });
+}
+
+let tokenClient: google.accounts.oauth2.TokenClient
+
+async function loadGoogleIdentityServices(callback?: () => void): Promise<google.accounts.oauth2.TokenClient> {
+  if (tokenClient) return tokenClient
+
+  const gisScript = document.createElement('script');
+  gisScript.src = 'https://accounts.google.com/gsi/client';
+  gisScript.onload = () => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: import.meta.env.PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
+      scope,
+      callback: async (resp) => {
+        if (resp.error !== undefined) {
+          throw (resp);
+        }
+        if (callback) callback()
+        console.log(await listMajors())
+      },
+    })
+  }
+  document.body.appendChild(gisScript);
+
+  return new Promise((resolve) => {
+    const gisChecker = setInterval(() => {
+      if (tokenClient) {
+        clearInterval(gisChecker)
+        resolve(tokenClient)
+      }
+    }, 50)
+  });
+};
 
 /**
  * Return the names and majors of students in a sample spreadsheet:
@@ -30,7 +94,13 @@ async function listMajors(): Promise<string[] | undefined> {
   );
 }
 
-function handleAuthClick() {
+async function handleAuthClick(callback?: () => void) {
+  const [gapi, tokenClient] = await Promise.all([
+    loadGapi(),
+    loadGoogleIdentityServices(callback),
+    set(WANTS_GOOGLE, true), // no value returned, but done in Promise.all to avoid blocking other calls
+  ]);
+
   if (gapi.client.getToken() === null) {
     // Prompt the user to select a Google Account and ask for consent to share their data
     // when establishing a new session.
@@ -42,53 +112,21 @@ function handleAuthClick() {
 }
 
 export default function Login() {
-  const [gapiReady, setGapiReady] = React.useState(false)
-  const [gisReady, setGisReady] = React.useState(false)
+  const [wantsGoogle, setWantsGoogle] = React.useState(false)
   const [signedIn, setSignedIn] = React.useState(false)
 
-  async function intializeGapiClient() {
-    await gapi.client.init({
-      apiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
-      discoveryDocs: [DISCOVERY_DOC],
-    })
-    setGapiReady(true)
-  }
-
-  function initializeGoogleIdentityServices() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: import.meta.env.PUBLIC_GOOGLE_OAUTH_CLIENT_ID,
-      scope,
-      callback: async (resp) => {
-        if (resp.error !== undefined) {
-          throw (resp);
-        }
-        console.log(await listMajors())
-        setSignedIn(true)
-      },
-    })
-    setGisReady(true)
-  }
+  // check if user has previously indicated they want Google services loaded/contacted
+  React.useEffect(() => {
+    get(WANTS_GOOGLE).then(setWantsGoogle)
+  }, [])
 
   React.useEffect(() => {
-    const gapiScript = document.createElement('script');
-    gapiScript.src = 'https://apis.google.com/js/api.js';
-    gapiScript.onload = () => {
-      gapi.load('client', intializeGapiClient);
+    // if `wantsGoogle` changes from false to true, load Google scripts prior to button click
+    if (wantsGoogle) {
+      loadGapi()
+      loadGoogleIdentityServices(() => setSignedIn(true))
     }
-    document.body.appendChild(gapiScript);
-
-    const gisScript = document.createElement('script');
-    gisScript.src = 'https://accounts.google.com/gsi/client';
-    gisScript.onload = initializeGoogleIdentityServices
-    document.body.appendChild(gisScript);
-
-    return () => {
-      gapiScript.remove()
-      gisScript.remove()
-    }
-  }, []);
-
-  if (!gapiReady || !gisReady) return null
+  }, [wantsGoogle]);
 
   if (signedIn) {
     return (
@@ -109,7 +147,7 @@ export default function Login() {
         </button>
         <button
           style={{ float: 'right', marginLeft: '0.5em' }}
-          onClick={handleAuthClick}
+          onClick={() => handleAuthClick()}
         >
           Refresh
         </button>
@@ -120,7 +158,7 @@ export default function Login() {
   return (
     <button
       style={{ float: 'right', marginLeft: '0.5em' }}
-      onClick={handleAuthClick}
+      onClick={() => handleAuthClick(() => setSignedIn(true))}
     >
       Sync with Google Sheets
     </button>
