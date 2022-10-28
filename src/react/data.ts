@@ -16,11 +16,11 @@ interface RecentDeletion {
 type RecentlyDeleted = RecentDeletion[]
 
 const RECENTLY_DELETED = 'recently-deleted'
-export const WANTS_GOOGLE = 'wants-google'
+const GOOGLE_ACCESS_TOKEN = 'google-access-token'
 
 const reservedKeys = [
   RECENTLY_DELETED,
-  WANTS_GOOGLE,
+  GOOGLE_ACCESS_TOKEN,
 ]
 
 /**
@@ -31,23 +31,32 @@ const reservedKeys = [
  * Keys in {@constant reservedKeys} have different return types, which are specified in type overloads.
  */
 export async function get(key: typeof RECENTLY_DELETED): Promise<RecentlyDeleted>;
-export async function get(key: typeof WANTS_GOOGLE): Promise<boolean>;
+export async function get(key: typeof GOOGLE_ACCESS_TOKEN): Promise<google.accounts.oauth2.TokenResponse | undefined>;
 export async function get(key: string): Promise<undefined | Entry[]>;
-export async function get(key: string): Promise<undefined | Entry[] | RecentlyDeleted | boolean> {
+export async function get(key: string): Promise<undefined | Entry[] | RecentlyDeleted | google.accounts.oauth2.TokenResponse> {
   if (key === RECENTLY_DELETED) {
     return await store.getItem(key) ?? []
   }
-  if (key === WANTS_GOOGLE) {
-    return await store.getItem(key) ?? false
+  if (key === GOOGLE_ACCESS_TOKEN) {
+    return await store.getItem(key) ?? undefined
   }
   return await store.getItem(key) as Entry[]
 }
 
-export async function set(key: typeof WANTS_GOOGLE, to: boolean): Promise<void> {
-  if (key !== WANTS_GOOGLE) {
-    throw new Error(`Setting data keys other than ${WANTS_GOOGLE} directly is dangerous! Use one of the other exported 'set*' methods.`)
-  }
-  await store.setItem(key, to)
+/**
+ * Save or delete access token provided by Google Identity Services
+ * @param token access token provided by Google, or `undefined` to clear the token
+ */
+export async function setGoogleToken(token: google.accounts.oauth2.TokenResponse | undefined): Promise<void> {
+  if (token) await store.setItem(GOOGLE_ACCESS_TOKEN, token)
+  else await store.removeItem(GOOGLE_ACCESS_TOKEN)
+}
+
+/**
+ * Get Google's access token
+ */
+export async function getGoogleToken(): Promise<undefined | google.accounts.oauth2.TokenResponse> {
+  return await store.getItem(GOOGLE_ACCESS_TOKEN) ?? undefined
 }
 
 /**
