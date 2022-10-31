@@ -2,10 +2,13 @@ import { getGoogleToken, setGoogleToken } from '../../data'
 
 const scopes = [
   'https://www.googleapis.com/auth/spreadsheets.readonly',
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.appdata',
 ] as const
 
 const discoveryDocs = [
   'https://sheets.googleapis.com/$discovery/rest?version=v4',
+  'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
 ]
 
 let gapiLoaded = false
@@ -41,7 +44,7 @@ async function loadGapi(): Promise<typeof gapi> {
     apiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
     discoveryDocs, // load public endpoints here
   })
-  // .then(function() { // load OAuth-guarded endpoints here
+  // .then(function () { // load OAuth-guarded endpoints here
   //   gapi.client.load('https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest')
   // })
 
