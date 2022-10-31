@@ -11,9 +11,10 @@ const discoveryDocs = [
 let gapiLoaded = false
 
 /**
- * Fetch Google API (gapi) by adding new `<script>` tag to page and then loading app's `gapi.client`.
+ * Fetch Google API (gapi) by adding new `<script>` tag to page and then loading
+ * app's `gapi.client`, returning `gapi`.
+ *
  * Returns immediately if `gapi` global is already available.
- * Otherwise, will only return after everything's initialized.
  */
 async function loadGapi(): Promise<typeof gapi> {
   if (gapiLoaded) return gapi
@@ -54,6 +55,12 @@ async function loadGapi(): Promise<typeof gapi> {
 
 let tokenClient: google.accounts.oauth2.TokenClient
 
+/**
+ * Fetch Google Identity Services (gis) by adding new `<script>` tag to page and
+ * then initializing a new `google.accounts.oauth.tokenClient` and returning it.
+ *
+ * Returns immediately if `tokenClient` is already initialized.
+ */
 async function loadGoogleIdentityServices(): Promise<google.accounts.oauth2.TokenClient> {
   if (tokenClient) return tokenClient
 
@@ -88,6 +95,13 @@ async function loadGoogleIdentityServices(): Promise<google.accounts.oauth2.Toke
   return tokenClient
 }
 
+/**
+ * Fetch Google API (gapi) and Google Identity Services (gis) by adding new
+ * `<script>` tags to page with {@link loadGapi} and {@link loadGoogleIdentityServices}.
+ *
+ * Can be called idempotently without adding duplicate `<script>` tags to page;
+ * will immediately return already-loaded `gapi` and `tokenClient` if available.
+ */
 export async function loadGoogle() {
   return await Promise.all([
     loadGapi(),
@@ -175,6 +189,7 @@ export async function signIn(callback?: () => void) {
 }
 
 export async function signOut(callback?: (args?: any[]) => void) {
+  const [gapi] = await loadGoogle()
   const token = gapi.client.getToken()
   if (token !== null) {
     google.accounts.oauth2.revoke(token.access_token, () => {
