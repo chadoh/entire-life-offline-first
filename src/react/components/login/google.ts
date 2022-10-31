@@ -96,12 +96,9 @@ export async function loadGoogle() {
 }
 
 async function checkApiError(err: gapi.client.HttpRequestRejected) {
-  console.log('checkApiError', err)
   const { code, status } = err.result.error
-  console.log('checkApiError', err, { code, status })
   if (code === 401 || code === 403 && status === "PERMISSION_DENIED") {
     // The access token is missing, invalid, or expired, prompt for user consent to obtain one.
-    console.log('trying to reset access token')
     await new Promise((resolve, reject) => {
       try {
         // Settle this promise in the response callback for requestAccessToken()
@@ -113,7 +110,7 @@ async function checkApiError(err: gapi.client.HttpRequestRejected) {
         };
         tokenClient.requestAccessToken();
       } catch (err) {
-        console.log(err)
+        console.error(err)
       }
     });
   } else {
@@ -172,7 +169,7 @@ export async function signIn(callback?: () => void) {
         tokenClient.requestAccessToken({ prompt: '' });
       }
     } catch (err) {
-      console.log(err)
+      console.error(err)
     }
   });
 }
