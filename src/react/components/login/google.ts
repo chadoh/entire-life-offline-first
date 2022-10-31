@@ -1,5 +1,4 @@
-import React from 'react'
-import { getGoogleToken, setGoogleToken } from '../data'
+import { getGoogleToken, setGoogleToken } from '../../data'
 
 const scopes = [
   'https://www.googleapis.com/auth/spreadsheets.readonly',
@@ -87,7 +86,14 @@ async function loadGoogleIdentityServices(): Promise<google.accounts.oauth2.Toke
   })
 
   return tokenClient
-};
+}
+
+export async function loadGoogle() {
+  return await Promise.all([
+    loadGapi(),
+    loadGoogleIdentityServices(),
+  ])
+}
 
 async function checkApiError(err: gapi.client.HttpRequestRejected) {
   console.log('checkApiError', err)
@@ -127,7 +133,7 @@ function isGapiError(e: unknown): e is gapi.client.HttpRequestRejected {
  * @param fn asynchronous function to try twice
  * @returns the return value of `fn`, or throws an error
  */
-async function tryTwice<T>(fn: () => Promise<T>): Promise<T | void> {
+export async function tryTwice<T>(fn: () => Promise<T>): Promise<T | void> {
   try {
     return await fn()
   } catch (e: unknown) {
@@ -142,32 +148,8 @@ async function tryTwice<T>(fn: () => Promise<T>): Promise<T | void> {
   }
 }
 
-/**
- * Return the names and majors of students in a sample spreadsheet:
- * https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
- * @returns string[] if successful; `undefined` if unsuccessful
- */
-async function listMajors(): Promise<string[] | void> {
-  return tryTwice(() => (
-    gapi.client.sheets.spreadsheets.values
-      .get({
-        spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-        range: 'Class Data!A2:E', // first 10 files
-      })
-      .then(response => (
-        response.result?.values?.reduce(
-          (arr, row) => [...arr, `${row[0]}, ${row[4]}`],
-          ['Name, Major']
-        )
-      ))
-  ))
-}
-
-async function handleAuthClick(callback?: () => void) {
-  const [gapi, tokenClient] = await Promise.all([
-    loadGapi(),
-    loadGoogleIdentityServices(),
-  ])
+export async function signIn(callback?: () => void) {
+  const [gapi, tokenClient] = await loadGoogle()
 
   await new Promise((resolve, reject) => {
     try {
@@ -195,67 +177,13 @@ async function handleAuthClick(callback?: () => void) {
   });
 }
 
-export default function Login() {
-  const [wantsGoogle, setWantsGoogle] = React.useState(false)
-  const [signedIn, setSignedIn] = React.useState(false)
-
-  // Only load/contact Google if the user currently signed in with Google
-  React.useEffect(() => {
-    getGoogleToken().then(_ => setWantsGoogle(true))
-  }, [])
-
-  React.useEffect(() => {
-    // if `wantsGoogle` changes from false to true, load Google scripts
-    if (wantsGoogle) {
-      Promise.all([
-        loadGapi(),
-        loadGoogleIdentityServices()
-      ]).then(async ([gapi]) => {
-        if (gapi.client.getToken() !== null) {
-          setSignedIn(true)
-          console.log(await listMajors())
-        }
-      })
-    }
-  }, [wantsGoogle]);
-
-  if (signedIn) {
-    return (
-      <>
-        <button
-          style={{ float: 'right', marginLeft: '0.5em' }}
-          onClick={async () => {
-            const token = gapi.client.getToken()
-            if (token !== null) {
-              google.accounts.oauth2.revoke(token.access_token, () => {
-                setSignedIn(false)
-              })
-              gapi.client.setToken(null)
-              await setGoogleToken(undefined)
-            }
-          }}
-        >
-          Sign Out
-        </button>
-        <button
-          style={{ float: 'right', marginLeft: '0.5em' }}
-          onClick={() => handleAuthClick()}
-        >
-          Refresh
-        </button>
-      </>
-    )
+export async function signOut(callback?: (args?: any[]) => void) {
+  const token = gapi.client.getToken()
+  if (token !== null) {
+    google.accounts.oauth2.revoke(token.access_token, () => {
+      callback && callback()
+    })
+    gapi.client.setToken(null)
+    await setGoogleToken(undefined)
   }
-
-  return (
-    <button
-      style={{ float: 'right', marginLeft: '0.5em' }}
-      onClick={() => handleAuthClick(async () => {
-        setSignedIn(true)
-        console.log(await listMajors())
-      })}
-    >
-      Sync with Google Sheets
-    </button>
-  )
 }
