@@ -1,21 +1,37 @@
 import store from 'localforage'
 
 /**
+ * Keys in user-facing Entry shown in UI
+ */
+const userFacingEntryKeys = [
+  'date', // iso8601 ie 1990-12-31
+  'emoji',
+  'title',
+  'body',
+] as const
+
+/**
+ * Keys in data-focused, full Entry
+ */
+const dbEntryKeys = [
+  'created',
+  'updated',
+] as const
+
+export const entryKeys = [...userFacingEntryKeys, ...dbEntryKeys]
+
+/**
  * User-facing Entry shown in UI
  */
-export interface UserFacingEntry {
-  title: string
-  date: string // iso8601 ie 1990-12-31
-  body?: string
-  emoji?: string
+export type UserFacingEntry = {
+  [K in typeof userFacingEntryKeys[number]]: string
 }
 
 /**
  * Entry as stored in local storage and in backend. `created` used as unique ID.
  */
-export interface Entry extends UserFacingEntry {
-  created: number // `Date.now()` timestamp
-  updated: number // `Date.now()` timestamp
+export type Entry = UserFacingEntry & {
+  [K in typeof dbEntryKeys[number]]: number // `Date.now()` timestamp
 }
 
 interface RecentDeletion {

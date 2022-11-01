@@ -147,7 +147,7 @@ function isGapiError(e: unknown): e is gapi.client.HttpRequestRejected {
  * @param fn asynchronous function to try twice
  * @returns the return value of `fn`, or throws an error
  */
-export async function tryTwice<T>(fn: () => Promise<T>): Promise<T | void> {
+export async function tryTwice<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (e: unknown) {
@@ -158,6 +158,7 @@ export async function tryTwice<T>(fn: () => Promise<T>): Promise<T | void> {
     } catch (e: unknown) {
       if (!(isGapiError(e))) throw e
       await checkApiError(e)
+      throw e
     }
   }
 }

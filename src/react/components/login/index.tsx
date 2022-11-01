@@ -1,18 +1,18 @@
 import React from 'react'
 
 import { loadGoogle, tryTwice, signIn, signOut } from './google'
-import { getGoogleToken } from '../../data'
+import { getGoogleToken, getLedgers, get as getLedger, entryKeys } from '../../data'
 
 let folderId: string
 
 async function createFolderId(): Promise<string> {
-  const newFolder = await gapi.client.drive.files.create({
+  const newFolder = await tryTwice(() => gapi.client.drive.files.create({
     resource: {
       name: "Entire.Life",
       mimeType: 'application/vnd.google-apps.folder'
     },
     fields: 'id,name'
-  })
+  }))
   folderId = newFolder.result.id as string
 
   /**
@@ -62,11 +62,11 @@ Neat!
 async function findFolderId(): Promise<string | undefined> {
   if (folderId) return folderId
 
-  const { result } = await gapi.client.drive.files.list({
+  const { result } = await tryTwice(() => gapi.client.drive.files.list({
     q: 'mimeType=\'application/vnd.google-apps.folder\' and name=\'Entire.Life\' and trashed = false',
     fields: 'nextPageToken, files(id, name)',
     spaces: 'drive',
-  })
+  }))
   if (result.files && result.files.length > 1) {
     console.log(result.files)
     throw new Error('You have more than one "Entire.Life" folder in your Google Drive! Please rename the one that doesn\'t actually contain the data created by this app.')
@@ -83,10 +83,10 @@ async function findOrCreateFolderId(): Promise<string> {
 
 async function findSpreadsheet(name: string) {
   const folderId = await findOrCreateFolderId()
-  const { result } = await gapi.client.drive.files.list({
+  const { result } = await tryTwice(() => gapi.client.drive.files.list({
     q: `mimeType=\'application/vnd.google-apps.spreadsheet\' and name=\'${name}\' and parents in '${folderId}' and trashed = false`,
     spaces: 'drive',
-  })
+  }))
   if (result.files && result.files.length > 1) {
     console.log(result.files)
     throw new Error(`You have more than one "${name}" spreadsheet in the Entire.Life folder your Google Drive! Please rename the one that doesn\'t actually contain the data created by this app.`)
@@ -96,14 +96,14 @@ async function findSpreadsheet(name: string) {
 
 async function createSpreadsheet(name: string) {
   const folderId = await findOrCreateFolderId()
-  const response = await gapi.client.drive.files.create({
+  const response = await tryTwice(() => gapi.client.drive.files.create({
     resource: {
       mimeType: 'application/vnd.google-apps.spreadsheet',
       parents: [folderId],
       name,
     },
     fields: 'id,name',
-  })
+  }))
   return response.result
 }
 
@@ -113,25 +113,51 @@ async function findOrCreateSpreadsheet(name: string) {
 }
 
 /**
- * Return the names and majors of students in a sample spreadsheet:
- * https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
- * @returns string[] if successful; `undefined` if unsuccessful
+ * Convert a number like `1` into a letter like `A`.
+ * 
+ *   - 2: 'B'
+ *   - 3: 'C'
+ *   - 4: 'D'
+ *   - etc...
+ * 
+ * Logic adapted from https://devenum.com/convert-numbers-to-letters-javascript-decode/
  */
-async function listMajors(): Promise<string[] | void> {
-  console.log(await findOrCreateSpreadsheet('Chad'))
-  return tryTwice(() => (
-    gapi.client.sheets.spreadsheets.values
-      .get({
-        spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-        range: 'Class Data!A2:E', // first 10 files
-      })
-      .then(response => (
-        response.result?.values?.reduce(
-          (arr, row) => [...arr, `${row[0]}, ${row[4]}`],
-          ['Name, Major']
-        )
-      ))
-  ))
+function numToLetter(num: number): string {
+  return String.fromCharCode(num + 64)
+}
+
+async function pushLedgerToSpreadsheet(name: string) {
+  const entries = await getLedger(name)
+  if (!entries) {
+    throw new Error(`Ledger "${name}" not found! Cannot push its data to a Google Spreadsheet. Check the name and try again.`)
+  }
+  if (!entries[0]) {
+    console.log(`Ledger "${name}" has no entries; nothing to push to Google Sheets`)
+    return
+  }
+
+  const headerRow = entryKeys
+  const rows = [
+    headerRow, // header row; use `keys` to get Entry key names
+    ...entries.map(entry => entryKeys.map(key => entry[key])),
+  ]
+
+  const spreadsheet = await findOrCreateSpreadsheet(name)
+
+  await tryTwice(() => gapi.client.sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: spreadsheet.id as string,
+    resource: {
+      data: [{
+        range: `Sheet1!A1:${numToLetter(headerRow.length)}${rows.length}`,
+        values: rows,
+      }],
+      valueInputOption: 'RAW',
+    },
+  }))
+}
+
+async function pushAllLedgersToSpreadsheet() {
+  await Promise.all((await getLedgers()).map(pushLedgerToSpreadsheet))
 }
 
 export default function Login() {
@@ -149,7 +175,7 @@ export default function Login() {
       loadGoogle().then(async ([gapi]) => {
         if (gapi.client.getToken() !== null) {
           setSignedIn(true)
-          console.log(await listMajors())
+          console.log(await pushAllLedgersToSpreadsheet())
         }
       })
     }
@@ -179,7 +205,7 @@ export default function Login() {
       style={{ float: 'right', marginLeft: '0.5em' }}
       onClick={() => signIn(async () => {
         setSignedIn(true)
-        console.log(await listMajors())
+        console.log(await pushAllLedgersToSpreadsheet())
       })}
     >
       Sync with Google Sheets
