@@ -1,4 +1,4 @@
-import { getGoogleToken, setGoogleToken } from '../../data'
+import { getGoogleToken, setGoogleToken } from '../../../data'
 
 const scopes = [
   'https://www.googleapis.com/auth/spreadsheets.readonly',
@@ -105,7 +105,7 @@ async function loadGoogleIdentityServices(): Promise<google.accounts.oauth2.Toke
  * Can be called idempotently without adding duplicate `<script>` tags to page;
  * will immediately return already-loaded `gapi` and `tokenClient` if available.
  */
-export async function loadGoogle() {
+export async function load() {
   return await Promise.all([
     loadGapi(),
     loadGoogleIdentityServices(),
@@ -164,7 +164,7 @@ export async function tryTwice<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export async function signIn(callback?: () => void) {
-  const [gapi, tokenClient] = await loadGoogle()
+  const [gapi, tokenClient] = await load()
 
   await new Promise((resolve, reject) => {
     try {
@@ -193,7 +193,7 @@ export async function signIn(callback?: () => void) {
 }
 
 export async function signOut(callback?: (args?: any[]) => void) {
-  const [gapi] = await loadGoogle()
+  const [gapi] = await load()
   const token = gapi.client.getToken()
   if (token !== null) {
     google.accounts.oauth2.revoke(token.access_token, () => {
