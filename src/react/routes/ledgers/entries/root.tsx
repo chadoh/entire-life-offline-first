@@ -20,8 +20,8 @@ function Entries() {
   return (
     <>
       <ul>
-        {entries.map((entry, i) => (
-          <li key={i}>
+        {entries.map(entry => (
+          <li key={entry.created}>
             <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h2>
                 {entry.emoji && `${entry.emoji} `}
@@ -29,7 +29,7 @@ function Entries() {
               </h2>
               <nav style={{ display: 'flex' }}>
                 <NavLink
-                  to={`edit/${i}`}
+                  to={`edit/${entry.created}`}
                   style={({ isActive, isPending }) => ({
                     color: isActive ? 'inherit' : isPending ? 'yellow' : 'blue',
                   })}
@@ -38,7 +38,7 @@ function Entries() {
                 </NavLink>
                 <Form
                   method="post"
-                  action={`destroy/${i}`}
+                  action={`destroy/${entry.created}`}
                   onSubmit={(event) => {
                     if (
                       !confirm(

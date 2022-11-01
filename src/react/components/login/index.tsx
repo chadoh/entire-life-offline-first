@@ -43,8 +43,11 @@ GO AHEAD AND EDIT THE SPREADSHEETS!
 ===================================
 
 Sheet 1 in each of the spreadsheets needs to stay in the same format. Keep the
-column names and positions the same! But if you add or delete rows, you'll
-automatically see those changes in Entire.Life. Neat!
+column names and positions the same! And if you edit a row, never modify the
+'created' value--that's what Entire.Life uses to identity rows.  Otherwise, have
+fun! Add, edit, and delete rows, and you'll see those changes in Entire.Life.
+
+Neat!
   `], { type: 'text/plain' }))
 
   await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {

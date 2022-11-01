@@ -1,16 +1,26 @@
 import store from 'localforage'
 
-export interface Entry {
+/**
+ * User-facing Entry shown in UI
+ */
+export interface UserFacingEntry {
   title: string
-  date: string /// iso8601 ie 1990-01-01
+  date: string // iso8601 ie 1990-12-31
   body?: string
   emoji?: string
+}
+
+/**
+ * Entry as stored in local storage and in backend. `created` used as unique ID.
+ */
+export interface Entry extends UserFacingEntry {
+  created: number // `Date.now()` timestamp
+  updated: number // `Date.now()` timestamp
 }
 
 interface RecentDeletion {
   ledger: string
   entry: Entry
-  entryId: number
 }
 
 type RecentlyDeleted = RecentDeletion[]
@@ -28,7 +38,7 @@ const reservedKeys = [
  * 
  * Most keys in storage correspond to a Ledger, and return simple lists of Entries.
  * 
- * Keys in {@constant reservedKeys} have different return types, which are specified in type overloads.
+ * Keys in {@link reservedKeys} have different return types, which are specified in type overloads.
  */
 export async function get(key: typeof RECENTLY_DELETED): Promise<RecentlyDeleted>;
 export async function get(key: typeof GOOGLE_ACCESS_TOKEN): Promise<google.accounts.oauth2.TokenResponse | undefined>;
@@ -77,10 +87,13 @@ export async function addLedger({ name, dob }: { name: string, dob: string /* is
     throw new Error(`The name "${normalized}" is reserved for internal use; please pick something else.`)
   }
 
+  const now = Date.now()
   await store.setItem(name, [{
     title: 'Hello World!',
     emoji: '🐣',
     date: dob,
+    created: now,
+    updated: now,
   }])
 }
 
@@ -110,29 +123,55 @@ export async function removeLedger(name: string) {
   await store.removeItem(name)
 }
 
-export async function addEntry(toLedger: string, entry: Entry) {
+export async function addEntry(toLedger: string, entry: UserFacingEntry) {
   const ledger = await get(toLedger)
   if (!ledger) {
     throw new Error(`No ledger named "${toLedger}"!`)
   }
 
-  store.setItem(toLedger, [...ledger, entry])
+  const now = Date.now()
+  store.setItem(toLedger, [...ledger, {
+    ...entry,
+    created: now,
+    updated: now,
+  }])
 }
 
 /**
- * Update an entry in a ledger, given its index in the ledger.
- * 
- * In an attempt to make entries understandable when viewed in Google Sheets, they have no unique IDs. The index-based ID system is brittle, and can break in unexpected ways! This function tries to be careful, throwing errors if the entry can no longer be found, and keeping a backup around for a minute to enable easy undos.
+ * Update an entry in a ledger, using its `created` timestamp as its unique ID.
  */
-export async function updateEntry(toLedger: string, entryId: number, newEntry: Entry) {
+export async function updateEntry(inLedger: string, entry: Entry) {
+  const ledger = await get(inLedger)
+  if (!ledger) {
+    throw new Error(`No ledger named "${inLedger}"!`)
+  }
+
+  const oldEntry = ledger.find(e => e.created === entry.created)
+  if (!oldEntry) {
+    throw new Error(`Cannot find existing entry with created="${entry.created}"! Someone else may have deleted it while you had this page open. Refresh the page and try again (you may want to copy your work-in-progress).`)
+  }
+
+  await store.setItem(inLedger, ledger.map(
+    e => e.created === entry.created
+      ? { ...entry, updated: Date.now() }
+      : e
+  ))
+}
+
+/**
+ * Delete an entry in a ledger, given its `created` date.
+ * 
+ * This function tries to be careful, throwing errors if the entry can no longer be found, and keeping a backup around for a minute to enable easy undos.
+ */
+export async function deleteEntry(toLedger: string, entryCreated: number) {
   const ledger = await get(toLedger)
   if (!ledger) {
     throw new Error(`No ledger named "${toLedger}"!`)
   }
 
-  const oldEntry = ledger[entryId]
+  const oldEntry = ledger.find(e => e.created === entryCreated)
   if (!oldEntry) {
-    throw new Error(`Cannot find existing entry #${entryId}! Someone else may have edited or deleted it while you had this page open. Refresh the page and try again (you may want to copy your work-in-progress).`)
+    throw new Error(`Cannot find existing entry with created="${entryCreated}"! Someone else may have deleted it while you had this page open. Refresh the page and try again.`)
   }
 
   await store.setItem(RECENTLY_DELETED, [
@@ -140,15 +179,14 @@ export async function updateEntry(toLedger: string, entryId: number, newEntry: E
     {
       ledger: toLedger,
       entry: oldEntry,
-      entryId,
     }
   ])
 
   // clear recent deletion after one minute
   setTimeout(clearOldestRecentDeletion, 60000)
 
-  store.setItem(toLedger, ledger.map(
-    (entry, i) => i === entryId ? newEntry : entry
+  store.setItem(toLedger, ledger.filter(
+    e => e.created !== entryCreated
   ))
 }
 
@@ -160,37 +198,4 @@ async function clearOldestRecentDeletion() {
   } else {
     await store.setItem(RECENTLY_DELETED, current.slice(1))
   }
-}
-
-/**
- * Delete an entry in a ledger, given its index in the ledger.
- * 
- * In an attempt to make entries understandable when viewed in Google Sheets, they have no unique IDs. The index-based ID system is brittle, and can break in unexpected ways! This function tries to be careful, throwing errors if the entry can no longer be found, and keeping a backup around for a minute to enable easy undos.
- */
-export async function deleteEntry(toLedger: string, entryId: number) {
-  const ledger = await get(toLedger)
-  if (!ledger) {
-    throw new Error(`No ledger named "${toLedger}"!`)
-  }
-
-  const oldEntry = ledger[entryId]
-  if (!oldEntry) {
-    throw new Error(`Cannot find existing entry #${entryId}! Someone else may have edited or deleted it while you had this page open. Refresh the page and try again.`)
-  }
-
-  await store.setItem(RECENTLY_DELETED, [
-    ...await get(RECENTLY_DELETED),
-    {
-      ledger: toLedger,
-      entry: oldEntry,
-      entryId,
-    }
-  ])
-
-  // clear recent deletion after one minute
-  setTimeout(clearOldestRecentDeletion, 60000)
-
-  store.setItem(toLedger, ledger.filter(
-    (_, i) => i !== entryId
-  ))
 }

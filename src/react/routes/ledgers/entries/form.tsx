@@ -18,6 +18,9 @@ export default function EntryForm(entry: Partial<Entry>) {
 
   return (
     <fetcher.Form method="post" ref={form}>
+      {entry.created && (
+        <input type="hidden" name="created" value={entry.created} />
+      )}
       <fieldset disabled={fetcher.state !== 'idle'}>
         <p>
           <input name="title" autoFocus required defaultValue={entry.title} />

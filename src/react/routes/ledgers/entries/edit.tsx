@@ -1,7 +1,7 @@
 import React from 'react'
 import { useLoaderData, redirect } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
-import { get, updateEntry, Entry } from '../../../data'
+import { get, updateEntry, Entry, UserFacingEntry } from '../../../data'
 import Form from './form'
 
 export const loader: LoaderFunction = async ({ params }): Promise<Entry> => {
@@ -13,26 +13,35 @@ export const loader: LoaderFunction = async ({ params }): Promise<Entry> => {
       statusText: `Can't find data for ${name}; maybe the data was edited by someone else while you had the page opened? Refresh the page and try again!`,
     })
   }
-  const entryId = parseInt(params.entryId as string)
-  const entry = entries[entryId]
+  const entryCreated = parseInt(params.entryCreated as string)
+  const entry = entries.find(e => e.created === entryCreated)
   if (!entry) {
     throw new Response('', {
       status: 404,
-      statusText: `Cannot find existing entry #${entryId}! Someone else may have edited or deleted it while you had this page open. Refresh the page and try again (you may want to copy your work-in-progress).`,
+      statusText: `Cannot find existing entry with created="${entryCreated}"! Someone else may have deleted it while you had this page open. Refresh the page and try again (you may want to copy your work-in-progress).`,
     })
   }
   return entry
 }
 
+/**
+ * Forms serialize all inputs as strings
+ */
+interface EntryFromForm extends UserFacingEntry {
+  created: string
+  updated: string
+}
+
 export const action: ActionFunction = async ({ request, params }) => {
   const ledgerName = params.ledgerName as string
   const formData = await request.formData()
-  const entry = Object.fromEntries(formData) as unknown as Entry
-  await updateEntry(
-    ledgerName,
-    parseInt(params.entryId as string),
-    entry
-  )
+  const entryFromForm = Object.fromEntries(formData) as unknown as EntryFromForm
+  const entry: Entry = {
+    ...entryFromForm,
+    created: parseInt(entryFromForm.created),
+    updated: parseInt(entryFromForm.updated),
+  }
+  await updateEntry(ledgerName, entry)
   return redirect(`/${ledgerName}`)
 }
 

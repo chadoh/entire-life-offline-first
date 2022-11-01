@@ -10,7 +10,7 @@ export const action: ActionFunction = async ({ params }) => {
   const ledgerName = params.ledgerName as string
   await deleteEntry(
     ledgerName,
-    parseInt(params.entryId as string)
+    parseInt(params.entryCreated as string)
   )
   return redirect(`/${ledgerName}`)
 }
