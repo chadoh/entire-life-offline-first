@@ -1,6 +1,6 @@
 import { redirect } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
-import { deleteEntry } from '../../../data'
+import { deleteEntry } from '../../../../data/local'
 
 export const loader: LoaderFunction = async ({ params }) => {
   return redirect(`/${params.ledgerName}`)

@@ -1,5 +1,5 @@
-import { tryTwice } from './auth'
-import { getLedgers, get as getLedger, entryKeys } from '../../../data'
+import { tryTwice } from "./utils"
+import { getLedgers, get as getLedger, entryKeys } from '../../local'
 
 let folderId: string
 
@@ -17,7 +17,7 @@ async function createFolderId(): Promise<string> {
    * Add README to the folder to explain what it is to people who find it when looking at their Google Drive
    * Logic taken from https://gist.github.com/tanaikech/bd53b366aedef70e35a35f449c51eced
    */
-  const accessToken = gapi.auth.getToken().access_token // Here gapi is used for retrieving the access token.
+  const accessToken = gapi.auth.getToken().access_token // Here api is used for retrieving the access token.
   const form = new FormData()
   form.append('metadata', new Blob([JSON.stringify({
     'name': 'README.md', // Filename at Google Drive
@@ -73,9 +73,21 @@ async function findFolderId(): Promise<string | undefined> {
   return folder?.id
 }
 
+let findOrCreateLock: Promise<string>
+
+/**
+ * Find existing `Entire.Life` folder, or create new one.
+ * 
+ * Uses {@link findOrCreateLock} to enable multiple calls to fire in parallel
+ * without accidentally creating duplicate folders.
+ */
 async function findOrCreateFolderId(): Promise<string> {
-  const folder = await findFolderId()
-  return folder ?? await createFolderId()
+  if (findOrCreateLock) return await findOrCreateLock
+  findOrCreateLock = new Promise(async resolve => {
+    const folder = await findFolderId()
+    resolve(folder ?? await createFolderId())
+  })
+  return await findOrCreateLock
 }
 
 async function findSpreadsheet(name: string) {

@@ -1,7 +1,7 @@
 import React from 'react'
 import { useFetcher } from 'react-router-dom'
 import { usePrev } from '../../../hooks'
-import type { Entry } from '../../../data'
+import type { Entry } from '../../../../data/local'
 
 export default function EntryForm(entry: Partial<Entry>) {
   const fetcher = useFetcher()

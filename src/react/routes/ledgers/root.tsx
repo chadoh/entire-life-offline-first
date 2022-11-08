@@ -7,7 +7,7 @@ import {
   useParams,
 } from 'react-router-dom'
 import type { LoaderFunction } from '@remix-run/router'
-import { getLedgers } from '../../data'
+import { getLedgers } from '../../../data/local'
 import Login from '../../components/login'
 
 export const loader: LoaderFunction = async (): Promise<string[]> => {

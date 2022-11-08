@@ -92,6 +92,15 @@ export async function getLedgers(): Promise<string[]> {
   return (await store.keys()).filter(k => !reservedKeys.includes(k))
 }
 
+/**
+ * Set a value to the local data store and post `sync` message to all `window.workers`
+ */
+async function set<T>(key: string, value: T): Promise<T> {
+  const ret = await store.setItem(key, value)
+  window.workers?.forEach(w => w.postMessage({ directive: 'sync', api: { haha: 'lol' } }))
+  return ret
+}
+
 export async function addLedger({ name, dob }: { name: string, dob: string /* iso8601 */ }) {
   const normalized = name.trim()
 
@@ -104,7 +113,7 @@ export async function addLedger({ name, dob }: { name: string, dob: string /* is
   }
 
   const now = Date.now()
-  await store.setItem(name, [{
+  await set(name, [{
     title: 'Hello World!',
     emoji: '🐣',
     date: dob,
@@ -128,8 +137,8 @@ export async function updateLedger({ oldName, newName }: { oldName: string, newN
     throw new Error(`The name "${normalized}" is reserved for internal use; please pick something else.`)
   }
 
-  await store.setItem(newName, await get(oldName))
   await store.removeItem(oldName)
+  await set(newName, await get(oldName))
 }
 
 export async function removeLedger(name: string) {
@@ -137,6 +146,7 @@ export async function removeLedger(name: string) {
     throw new Error(`The name "${name}" is reserved for internal use; please pick something else.`)
   }
   await store.removeItem(name)
+  window.workers?.forEach(w => w.postMessage({ directive: 'sync', gapi }))
 }
 
 export async function addEntry(toLedger: string, entry: UserFacingEntry) {
@@ -146,7 +156,7 @@ export async function addEntry(toLedger: string, entry: UserFacingEntry) {
   }
 
   const now = Date.now()
-  store.setItem(toLedger, [...ledger, {
+  await set(toLedger, [...ledger, {
     ...entry,
     created: now,
     updated: now,
@@ -201,7 +211,7 @@ export async function deleteEntry(toLedger: string, entryCreated: number) {
   // clear recent deletion after one minute
   setTimeout(clearOldestRecentDeletion, 60000)
 
-  store.setItem(toLedger, ledger.filter(
+  await set(toLedger, ledger.filter(
     e => e.created !== entryCreated
   ))
 }

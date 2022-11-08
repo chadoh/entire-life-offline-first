@@ -1,6 +1,5 @@
 import React from 'react'
-import { load, signIn, signOut, sync } from './google'
-import { getGoogleToken } from '../../data'
+import { google } from '../../data'
 
 export default function Login() {
   const [wantsGoogle, setWantsGoogle] = React.useState(false)
@@ -8,16 +7,16 @@ export default function Login() {
 
   // Only load/contact Google if the user currently signed in with Google
   React.useEffect(() => {
-    getGoogleToken().then(_ => setWantsGoogle(true))
+    google.isWanted().then(setWantsGoogle)
   }, [])
 
   React.useEffect(() => {
     // if `wantsGoogle` changes from false to true, load Google scripts
     if (wantsGoogle) {
-      load().then(async ([gapi]) => {
+      google.load().then(async ([gapi]) => {
         if (gapi.client.getToken() !== null) {
           setSignedIn(true)
-          await sync()
+          console.log(await google.sync())
         }
       })
     }
@@ -28,13 +27,13 @@ export default function Login() {
       <>
         <button
           style={{ float: 'right', marginLeft: '0.5em' }}
-          onClick={() => signOut(() => setSignedIn(false))}
+          onClick={() => google.signOut(() => setSignedIn(false))}
         >
           Sign Out
         </button>
         <button
           style={{ float: 'right', marginLeft: '0.5em' }}
-          onClick={() => signIn()}
+          onClick={() => google.signIn()}
         >
           Refresh
         </button>
@@ -45,9 +44,9 @@ export default function Login() {
   return (
     <button
       style={{ float: 'right', marginLeft: '0.5em' }}
-      onClick={() => signIn(async () => {
+      onClick={() => google.signIn(async () => {
         setSignedIn(true)
-        await sync()
+        console.log(await google.sync())
       })}
     >
       Sync with Google Sheets

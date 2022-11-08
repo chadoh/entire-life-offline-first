@@ -1,7 +1,7 @@
 import React from 'react'
 import { useLoaderData, Form, Outlet, NavLink } from 'react-router-dom'
 import type { LoaderFunction } from '@remix-run/router'
-import { get, Entry } from '../../../data'
+import { get, Entry } from '../../../../data/local'
 
 export const loader: LoaderFunction = async ({ params }): Promise<Entry[]> => {
   const name = params.ledgerName as string

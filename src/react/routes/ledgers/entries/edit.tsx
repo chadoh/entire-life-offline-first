@@ -1,7 +1,7 @@
 import React from 'react'
 import { useLoaderData, redirect } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
-import { get, updateEntry, Entry, UserFacingEntry } from '../../../data'
+import { get, updateEntry, Entry, UserFacingEntry } from '../../../../data/local'
 import Form from './form'
 
 export const loader: LoaderFunction = async ({ params }): Promise<Entry> => {
