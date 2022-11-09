@@ -1,23 +1,50 @@
-import { tryTwice } from "./utils"
-import { getLedgers, get as getLedger, entryKeys } from '../../local'
+import { getGoogleToken, getLedgers, get as getLedger, entryKeys } from '../../local'
+
+/**
+ * FAKE tryTwice! FIXME
+ * 
+ * The current `tryTwice` uses `gapi`, which does not work from a Web Worker.
+ * 
+ * This needs to be a version that posts a message to the main GUI process,
+ * which can then do the `tryTwice` logic and pass a new message to the worker
+ * so it can try again.
+ */
+async function tryTwice<T>(fn: () => Promise<T>): Promise<T> {
+  return await fn()
+}
+
+async function accessToken(): Promise<string> {
+  const googleToken = await getGoogleToken()
+  if (!googleToken) throw new Error('Have not authenticated Google! Cannot sync.')
+  return googleToken.access_token
+}
+
+async function headers({ json } = { json: true }): Promise<{ headers: Headers }> {
+  const headers = new Headers({ 'Authorization': 'Bearer ' + await accessToken() })
+  if (json) headers.set('Content-Type', 'application/json')
+  return { headers }
+}
 
 let folderId: string
 
 async function createFolderId(): Promise<string> {
-  const newFolder = await tryTwice(() => gapi.client.drive.files.create({
-    resource: {
-      name: "Entire.Life",
-      mimeType: 'application/vnd.google-apps.folder'
-    },
-    fields: 'id,name'
-  }))
-  folderId = newFolder.result.id as string
+  const newFolder = await tryTwice(async () => fetch(
+    `https://content.googleapis.com/drive/v3/files?alt=json`,
+    {
+      method: 'POST',
+      ...await headers(),
+      body: JSON.stringify({
+        name: 'Entire.Life',
+        mimeType: 'application/vnd.google-apps.folder',
+      }),
+    }
+  ).then(r => r.json())) as { id: string }
+  folderId = newFolder.id as string
 
   /**
    * Add README to the folder to explain what it is to people who find it when looking at their Google Drive
    * Logic taken from https://gist.github.com/tanaikech/bd53b366aedef70e35a35f449c51eced
    */
-  const accessToken = gapi.auth.getToken().access_token // Here api is used for retrieving the access token.
   const form = new FormData()
   form.append('metadata', new Blob([JSON.stringify({
     'name': 'README.md', // Filename at Google Drive
@@ -50,7 +77,7 @@ Neat!
 
   await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
     method: 'POST',
-    headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+    ...await headers({ json: false }),
     body: form,
   })
 
@@ -60,11 +87,15 @@ Neat!
 async function findFolderId(): Promise<string | undefined> {
   if (folderId) return folderId
 
-  const { result } = await tryTwice(() => gapi.client.drive.files.list({
-    q: 'mimeType=\'application/vnd.google-apps.folder\' and name=\'Entire.Life\' and trashed = false',
-    fields: 'nextPageToken, files(id, name)',
-    spaces: 'drive',
-  }))
+  const result = await tryTwice(async () => fetch(
+    'https://content.googleapis.com/drive/v3/files?spaces=drive&q=' +
+    encodeURIComponent(
+      `mimeType='application/vnd.google-apps.folder' `
+      + `and name='Entire.Life' `
+      + `and trashed = false `
+    ),
+    await headers()
+  ).then(r => r.json())) as { files: { id: string, name: string }[] }
   if (result.files && result.files.length > 1) {
     throw new Error('You have more than one "Entire.Life" folder in your Google Drive! Please rename the one that doesn\'t actually contain the data created by this app.')
   }
@@ -92,27 +123,36 @@ async function findOrCreateFolderId(): Promise<string> {
 
 async function findSpreadsheet(name: string) {
   const folderId = await findOrCreateFolderId()
-  const { result } = await tryTwice(() => gapi.client.drive.files.list({
-    q: `mimeType=\'application/vnd.google-apps.spreadsheet\' and name=\'${name}\' and parents in '${folderId}' and trashed = false`,
-    spaces: 'drive',
-  }))
+  const result = await tryTwice(async () => fetch(
+    'https://content.googleapis.com/drive/v3/files?spaces=drive&q=' +
+    encodeURIComponent(
+      `mimeType='application/vnd.google-apps.spreadsheet' `
+      + `and name='${name}' `
+      + `and parents in '${folderId}' `
+      + `and trashed = false `
+    ),
+    await headers()
+  ).then(r => r.json())) as { files: { id: string, name: string }[] }
   if (result.files && result.files.length > 1) {
-    throw new Error(`You have more than one "${name}" spreadsheet in the Entire.Life folder your Google Drive! Please rename the one that doesn\'t actually contain the data created by this app.`)
+    throw new Error(`You have more than one "${name}" spreadsheet in the Entire.Life folder in your Google Drive! Please rename the one that doesn't actually contain the data created by this app.`)
   }
   return result.files?.[0]
 }
 
 async function createSpreadsheet(name: string) {
   const folderId = await findOrCreateFolderId()
-  const response = await tryTwice(() => gapi.client.drive.files.create({
-    resource: {
-      mimeType: 'application/vnd.google-apps.spreadsheet',
-      parents: [folderId],
-      name,
-    },
-    fields: 'id,name',
-  }))
-  return response.result
+  return await tryTwice(async () => fetch(
+    `https://content.googleapis.com/drive/v3/files?alt=json`,
+    {
+      method: 'POST',
+      ...await headers(),
+      body: JSON.stringify({
+        mimeType: 'application/vnd.google-apps.spreadsheet',
+        parents: [folderId],
+        name,
+      }),
+    }
+  ).then(r => r.json()))
 }
 
 async function findOrCreateSpreadsheet(name: string) {
@@ -152,18 +192,29 @@ async function pushLedgerToSpreadsheet(name: string) {
 
   const spreadsheet = await findOrCreateSpreadsheet(name)
 
-  await tryTwice(() => gapi.client.sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId: spreadsheet.id as string,
-    resource: {
-      data: [{
-        range: `Sheet1!A1:${numToLetter(headerRow.length)}${rows.length}`,
-        values: rows,
-      }],
-      valueInputOption: 'RAW',
-    },
-  }))
+  await tryTwice(async () => fetch(
+    `https://content-sheets.googleapis.com/v4/spreadsheets/${spreadsheet.id}/values:batchUpdate?alt=json`,
+    {
+      method: 'POST',
+      ...await headers(),
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: [{
+          range: `Sheet1!A1:${numToLetter(headerRow.length)}${rows.length}`,
+          values: rows,
+        }],
+      })
+    }
+  ))
 }
 
-export async function sync() {
+async function fullSync() {
   await Promise.all((await getLedgers()).map(pushLedgerToSpreadsheet))
+}
+
+onmessage = async function (e) {
+  if (e.data.directive === 'sync') {
+    await fullSync()
+    postMessage('synced')
+  }
 }

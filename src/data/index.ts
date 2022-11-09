@@ -1,2 +1,2 @@
 export * from './local'
-export * as google from './backends/google'
+export * from './backends'

@@ -48,9 +48,6 @@ async function loadGapi(): Promise<typeof gapi> {
     apiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
     discoveryDocs, // load public endpoints here
   })
-  // .then(function () { // load OAuth-guarded endpoints here
-  //   gapi.client.load('https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest')
-  // })
 
   const accessToken = await getGoogleToken()
   if (accessToken) gapi.client.setToken(accessToken)

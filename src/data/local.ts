@@ -97,7 +97,7 @@ export async function getLedgers(): Promise<string[]> {
  */
 async function set<T>(key: string, value: T): Promise<T> {
   const ret = await store.setItem(key, value)
-  window.workers?.forEach(w => w.postMessage({ directive: 'sync', api: { haha: 'lol' } }))
+  window.workers?.forEach(w => w.postMessage({ directive: 'sync' }))
   return ret
 }
 
