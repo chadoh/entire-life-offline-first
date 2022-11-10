@@ -92,12 +92,18 @@ export async function getLedgers(): Promise<string[]> {
   return (await store.keys()).filter(k => !reservedKeys.includes(k))
 }
 
+function syncWorkers() {
+  Object.values(window.workers ?? {}).forEach(
+    w => w.postMessage('sync')
+  )
+}
+
 /**
  * Set a value to the local data store and post `sync` message to all `window.workers`
  */
 async function set<T>(key: string, value: T): Promise<T> {
   const ret = await store.setItem(key, value)
-  window.workers?.forEach(w => w.postMessage({ directive: 'sync' }))
+  syncWorkers()
   return ret
 }
 
@@ -146,7 +152,7 @@ export async function removeLedger(name: string) {
     throw new Error(`The name "${name}" is reserved for internal use; please pick something else.`)
   }
   await store.removeItem(name)
-  window.workers?.forEach(w => w.postMessage({ directive: 'sync', gapi }))
+  syncWorkers()
 }
 
 export async function addEntry(toLedger: string, entry: UserFacingEntry) {

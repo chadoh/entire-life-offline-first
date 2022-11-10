@@ -1,5 +1,5 @@
 import React from 'react'
-import { google, createWorker } from '../../data'
+import { google, findOrCreateWorker } from '../../data'
 
 export default function Login() {
   const [wantsGoogle, setWantsGoogle] = React.useState(false)
@@ -16,7 +16,6 @@ export default function Login() {
       google.load().then(async ([gapi]) => {
         if (gapi.client.getToken() !== null) {
           setSignedIn(true)
-          createWorker('google')
         }
       })
     }
@@ -46,7 +45,6 @@ export default function Login() {
       style={{ float: 'right', marginLeft: '0.5em' }}
       onClick={() => google.signIn(async () => {
         setSignedIn(true)
-        createWorker('google')
       })}
     >
       Sync with Google Sheets

@@ -1,2 +1,2 @@
 export * as google from './google'
-export * from './createWorker'
+export * from './findOrCreateWorker'

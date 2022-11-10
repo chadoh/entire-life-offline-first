@@ -1,16 +1,89 @@
+import { numToLetter, grab } from './worker-utils'
 import { getGoogleToken, getLedgers, get as getLedger, entryKeys } from '../../local'
 
-/**
- * FAKE tryTwice! FIXME
- * 
- * The current `tryTwice` uses `gapi`, which does not work from a Web Worker.
- * 
- * This needs to be a version that posts a message to the main GUI process,
- * which can then do the `tryTwice` logic and pass a new message to the worker
- * so it can try again.
- */
-async function tryTwice<T>(fn: () => Promise<T>): Promise<T> {
-  return await fn()
+onmessage = async function (e) {
+  if (e.data === 'sync') {
+    await fullSync()
+    postMessage('synced')
+  }
+}
+
+async function fullSync() {
+  await Promise.all((await getLedgers()).map(pushLedgerToSpreadsheet))
+}
+
+async function pushLedgerToSpreadsheet(name: string) {
+  const entries = await getLedger(name)
+  if (!entries) {
+    throw new Error(`Ledger "${name}" not found! Cannot push its data to a Google Spreadsheet. Check the name and try again.`)
+  }
+  if (!entries[0]) {
+    console.log(`Ledger "${name}" has no entries; nothing to push to Google Sheets`)
+    return
+  }
+
+  const headerRow = entryKeys
+  const rows = [
+    headerRow, // header row; use `keys` to get Entry key names
+    ...entries.map(entry => entryKeys.map(key => entry[key])),
+  ]
+
+  const spreadsheet = await findOrCreateSpreadsheet(name)
+
+  await grab(
+    `https://content-sheets.googleapis.com/v4/spreadsheets/${spreadsheet.id}/values:batchUpdate?alt=json`,
+    {
+      method: 'POST',
+      ...await headers(),
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: [{
+          range: `Sheet1!A1:${numToLetter(headerRow.length)}${rows.length}`,
+          values: rows,
+        }],
+      })
+    }
+  )
+}
+
+async function findOrCreateSpreadsheet(name: string) {
+  const spreadsheet = await findSpreadsheet(name)
+  return spreadsheet ?? await createSpreadsheet(name)
+}
+
+async function findSpreadsheet(name: string) {
+  const folderId = await findOrCreateFolderId()
+  const { result } = await grab<{ files: { id: string, name: string }[] }>(
+    'https://content.googleapis.com/drive/v3/files?spaces=drive&q=' +
+    encodeURIComponent(
+      `mimeType='application/vnd.google-apps.spreadsheet' `
+      + `and name='${name}' `
+      + `and parents in '${folderId}' `
+      + `and trashed = false `
+    ),
+    await headers()
+  )
+  if (result.files && result.files.length > 1) {
+    throw new Error(`You have more than one "${name}" spreadsheet in the Entire.Life folder in your Google Drive! Please rename the one that doesn't actually contain the data created by this app.`)
+  }
+  return result.files?.[0]
+}
+
+async function createSpreadsheet(name: string) {
+  const folderId = await findOrCreateFolderId()
+  const { result } = await grab<{ id: string, name: string }>(
+    `https://content.googleapis.com/drive/v3/files?alt=json`,
+    {
+      method: 'POST',
+      ...await headers(),
+      body: JSON.stringify({
+        mimeType: 'application/vnd.google-apps.spreadsheet',
+        parents: [folderId],
+        name,
+      }),
+    }
+  )
+  return result
 }
 
 async function accessToken(): Promise<string> {
@@ -28,7 +101,7 @@ async function headers({ json } = { json: true }): Promise<{ headers: Headers }>
 let folderId: string
 
 async function createFolderId(): Promise<string> {
-  const newFolder = await tryTwice(async () => fetch(
+  const { result: newFolder } = await grab<{ id: string, name: string }>(
     `https://content.googleapis.com/drive/v3/files?alt=json`,
     {
       method: 'POST',
@@ -38,7 +111,7 @@ async function createFolderId(): Promise<string> {
         mimeType: 'application/vnd.google-apps.folder',
       }),
     }
-  ).then(r => r.json())) as { id: string }
+  )
   folderId = newFolder.id as string
 
   /**
@@ -75,7 +148,7 @@ fun! Add, edit, and delete rows, and you'll see those changes in Entire.Life.
 Neat!
   `], { type: 'text/plain' }))
 
-  await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+  await grab('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
     method: 'POST',
     ...await headers({ json: false }),
     body: form,
@@ -87,7 +160,7 @@ Neat!
 async function findFolderId(): Promise<string | undefined> {
   if (folderId) return folderId
 
-  const result = await tryTwice(async () => fetch(
+  const { result } = await grab<{ files: { id: string, name: string }[] }>(
     'https://content.googleapis.com/drive/v3/files?spaces=drive&q=' +
     encodeURIComponent(
       `mimeType='application/vnd.google-apps.folder' `
@@ -95,7 +168,7 @@ async function findFolderId(): Promise<string | undefined> {
       + `and trashed = false `
     ),
     await headers()
-  ).then(r => r.json())) as { files: { id: string, name: string }[] }
+  )
   if (result.files && result.files.length > 1) {
     throw new Error('You have more than one "Entire.Life" folder in your Google Drive! Please rename the one that doesn\'t actually contain the data created by this app.')
   }
@@ -119,102 +192,4 @@ async function findOrCreateFolderId(): Promise<string> {
     resolve(folder ?? await createFolderId())
   })
   return await findOrCreateLock
-}
-
-async function findSpreadsheet(name: string) {
-  const folderId = await findOrCreateFolderId()
-  const result = await tryTwice(async () => fetch(
-    'https://content.googleapis.com/drive/v3/files?spaces=drive&q=' +
-    encodeURIComponent(
-      `mimeType='application/vnd.google-apps.spreadsheet' `
-      + `and name='${name}' `
-      + `and parents in '${folderId}' `
-      + `and trashed = false `
-    ),
-    await headers()
-  ).then(r => r.json())) as { files: { id: string, name: string }[] }
-  if (result.files && result.files.length > 1) {
-    throw new Error(`You have more than one "${name}" spreadsheet in the Entire.Life folder in your Google Drive! Please rename the one that doesn't actually contain the data created by this app.`)
-  }
-  return result.files?.[0]
-}
-
-async function createSpreadsheet(name: string) {
-  const folderId = await findOrCreateFolderId()
-  return await tryTwice(async () => fetch(
-    `https://content.googleapis.com/drive/v3/files?alt=json`,
-    {
-      method: 'POST',
-      ...await headers(),
-      body: JSON.stringify({
-        mimeType: 'application/vnd.google-apps.spreadsheet',
-        parents: [folderId],
-        name,
-      }),
-    }
-  ).then(r => r.json()))
-}
-
-async function findOrCreateSpreadsheet(name: string) {
-  const spreadsheet = await findSpreadsheet(name)
-  return spreadsheet ?? await createSpreadsheet(name)
-}
-
-/**
- * Convert a number like `1` into a letter like `A`.
- * 
- *   - 2: 'B'
- *   - 3: 'C'
- *   - 4: 'D'
- *   - etc...
- * 
- * Logic adapted from https://devenum.com/convert-numbers-to-letters-javascript-decode/
- */
-function numToLetter(num: number): string {
-  return String.fromCharCode(num + 64)
-}
-
-async function pushLedgerToSpreadsheet(name: string) {
-  const entries = await getLedger(name)
-  if (!entries) {
-    throw new Error(`Ledger "${name}" not found! Cannot push its data to a Google Spreadsheet. Check the name and try again.`)
-  }
-  if (!entries[0]) {
-    console.log(`Ledger "${name}" has no entries; nothing to push to Google Sheets`)
-    return
-  }
-
-  const headerRow = entryKeys
-  const rows = [
-    headerRow, // header row; use `keys` to get Entry key names
-    ...entries.map(entry => entryKeys.map(key => entry[key])),
-  ]
-
-  const spreadsheet = await findOrCreateSpreadsheet(name)
-
-  await tryTwice(async () => fetch(
-    `https://content-sheets.googleapis.com/v4/spreadsheets/${spreadsheet.id}/values:batchUpdate?alt=json`,
-    {
-      method: 'POST',
-      ...await headers(),
-      body: JSON.stringify({
-        valueInputOption: 'RAW',
-        data: [{
-          range: `Sheet1!A1:${numToLetter(headerRow.length)}${rows.length}`,
-          values: rows,
-        }],
-      })
-    }
-  ))
-}
-
-async function fullSync() {
-  await Promise.all((await getLedgers()).map(pushLedgerToSpreadsheet))
-}
-
-onmessage = async function (e) {
-  if (e.data.directive === 'sync') {
-    await fullSync()
-    postMessage('synced')
-  }
 }

@@ -1,3 +1,3 @@
 interface Window {
-  workers?: Worker[];
+  workers?: Record<string, Worker>;
 }

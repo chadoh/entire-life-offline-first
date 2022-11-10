@@ -1,4 +1,4 @@
-import { getGoogleToken, setGoogleToken } from '../../local'
+import { findOrCreateWorker, getGoogleToken, setGoogleToken } from '../..'
 
 export async function isWanted(): Promise<boolean> {
   return Boolean(await getGoogleToken())
@@ -107,10 +107,24 @@ async function loadGoogleIdentityServices(): Promise<google.accounts.oauth2.Toke
  * will immediately return already-loaded `gapi` and `tokenClient` if available.
  */
 export async function load() {
-  return await Promise.all([
+  const [gapi, tokenClient] = await Promise.all([
     loadGapi(),
     loadGoogleIdentityServices(),
   ])
+  if (gapi.client.getToken() !== null) {
+    await initWorker()
+  }
+  return [gapi, tokenClient] as const
+}
+
+async function initWorker() {
+  const worker = await findOrCreateWorker('google')
+  worker.onmessage = async (e) => {
+    if (e.data === 'authError') {
+      await refreshAccessToken()
+      worker.postMessage('sync')
+    }
+  }
 }
 
 export async function signIn(callback?: () => void) {
@@ -124,6 +138,7 @@ export async function signIn(callback?: () => void) {
         if (resp.error !== undefined) reject(resp.error)
         await Promise.all([
           setGoogleToken(resp),
+          initWorker(),
           callback && callback(),
         ])
         resolve(resp)
@@ -131,15 +146,15 @@ export async function signIn(callback?: () => void) {
       if (gapi.client.getToken() === null) {
         // Prompt the user to select a Google Account and ask for consent to share their data
         // when establishing a new session.
-        tokenClient.requestAccessToken({ prompt: 'consent' });
+        tokenClient.requestAccessToken({ prompt: 'consent' })
       } else {
         // Skip display of account chooser and consent dialog for an existing session.
-        tokenClient.requestAccessToken({ prompt: '' });
+        tokenClient.requestAccessToken({ prompt: '' })
       }
     } catch (err) {
       console.error(err)
     }
-  });
+  })
 }
 
 export async function signOut(callback?: (args?: any[]) => void) {
@@ -152,4 +167,25 @@ export async function signOut(callback?: (args?: any[]) => void) {
     gapi.client.setToken(null)
     await setGoogleToken(undefined)
   }
+}
+
+/**
+ * Prompt for user consent to obtain a new access token, if the current one is
+ * missing, invalid, or expired.
+ */
+export async function refreshAccessToken() {
+  const [_, tokenClient] = await load()
+  await new Promise((resolve, reject) => {
+    try {
+      // @ts-expect-error tokenClient.callback not typed correctly
+      tokenClient.callback = async (resp: google.accounts.oauth2.TokenResponse) => {
+        if (resp.error !== undefined) reject(resp.error)
+        await setGoogleToken(resp)
+        resolve(resp)
+      }
+      tokenClient.requestAccessToken()
+    } catch (err) {
+      console.error(err)
+    }
+  })
 }
