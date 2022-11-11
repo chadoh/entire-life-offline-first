@@ -100,26 +100,25 @@ function syncWorkers() {
 
 /**
  * Set a value to the local data store and post `sync` message to all `window.workers`
+ * 
+ * Turn off syncing by passing `sync: false`
  */
-async function set<T>(key: string, value: T): Promise<T> {
+async function set<T>(key: string, value: T, sync = true): Promise<T> {
   const ret = await store.setItem(key, value)
-  syncWorkers()
+  if (sync) syncWorkers()
   return ret
 }
 
+export async function addEmptyLedger(name: string) {
+  const normalized = await normalizeLedgerName(name)
+  await store.setItem(normalized, [])
+}
+
 export async function addLedger({ name, dob }: { name: string, dob: string /* iso8601 */ }) {
-  const normalized = name.trim()
-
-  if (await get(normalized)) {
-    throw new Error(`You already have a chart for ${normalized}; please name this one something unique.`)
-  }
-
-  if (reservedKeys.includes(normalized)) {
-    throw new Error(`The name "${normalized}" is reserved for internal use; please pick something else.`)
-  }
+  const normalized = await normalizeLedgerName(name)
 
   const now = Date.now()
-  await set(name, [{
+  await set(normalized, [{
     title: 'Hello World!',
     emoji: '🐣',
     date: dob,
@@ -128,15 +127,28 @@ export async function addLedger({ name, dob }: { name: string, dob: string /* is
   }])
 }
 
+async function normalizeLedgerName(name: string): Promise<string> {
+  const normalized = name.trim()
+
+  if (await get(normalized)) {
+    throw new Error(`You already have a ledger for ${normalized}; please name this one something unique.`)
+  }
+
+  if (reservedKeys.includes(normalized)) {
+    throw new Error(`The name "${normalized}" is reserved for internal use; please pick something else.`)
+  }
+
+  return normalized
+}
+
 export async function updateLedger({ oldName, newName }: { oldName: string, newName: string }) {
   const normalized = newName.trim()
 
   // if hit "save" on unchanged form, return early without error
   if (oldName === newName) return
 
-
   if (await get(normalized)) {
-    throw new Error(`You already have a chart for ${normalized}; please name this one something unique.`)
+    throw new Error(`You already have a ledger for ${normalized}; please name this one something unique.`)
   }
 
   if (reservedKeys.includes(normalized)) {
@@ -155,24 +167,37 @@ export async function removeLedger(name: string) {
   syncWorkers()
 }
 
-export async function addEntry(toLedger: string, entry: UserFacingEntry) {
+function isFullEntry(entry: UserFacingEntry | Entry): entry is Entry {
+  return 'created' in entry
+}
+
+export async function addEntry(toLedger: string, entry: UserFacingEntry | Entry, sync = true) {
   const ledger = await get(toLedger)
   if (!ledger) {
     throw new Error(`No ledger named "${toLedger}"!`)
   }
 
-  const now = Date.now()
-  await set(toLedger, [...ledger, {
+  const now = await getUniqueCreatedTimestamp(toLedger)
+  let fullEntry: Entry = isFullEntry(entry) ? entry : {
     ...entry,
     created: now,
     updated: now,
-  }])
+  } as Entry
+  await set(toLedger, [...ledger, fullEntry], sync)
+}
+
+async function getUniqueCreatedTimestamp(ledger: string): Promise<number> {
+  let now = Date.now()
+  while ((await get(ledger))?.find(e => e.created === now)) {
+    now += 1
+  }
+  return now
 }
 
 /**
  * Update an entry in a ledger, using its `created` timestamp as its unique ID.
  */
-export async function updateEntry(inLedger: string, entry: Entry) {
+export async function updateEntry(inLedger: string, entry: Omit<Entry, 'updated'>) {
   const ledger = await get(inLedger)
   if (!ledger) {
     throw new Error(`No ledger named "${inLedger}"!`)

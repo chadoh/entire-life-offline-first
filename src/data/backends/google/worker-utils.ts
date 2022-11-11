@@ -15,11 +15,19 @@ export async function grab<T>(endpoint: RequestInfo | URL, init?: RequestInit): 
   if (!response.ok) {
     if (isAuthError(response)) {
       postMessage('authError')
+      throw new StaleAuthToken()
+    } else {
+      throw response
     }
-    throw response
   }
 
   return response
+}
+
+export class StaleAuthToken extends Error {
+  constructor() {
+    super('Google access token is probably stale; refreshing it now. Try again soon.')
+  }
 }
 
 function isAuthError(e: unknown): e is gapi.client.HttpRequestRejected {

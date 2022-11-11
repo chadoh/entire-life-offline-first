@@ -36,10 +36,9 @@ export const action: ActionFunction = async ({ request, params }) => {
   const ledgerName = params.ledgerName as string
   const formData = await request.formData()
   const entryFromForm = Object.fromEntries(formData) as unknown as EntryFromForm
-  const entry: Entry = {
+  const entry: Omit<Entry, 'updated'> = {
     ...entryFromForm,
     created: parseInt(entryFromForm.created),
-    updated: parseInt(entryFromForm.updated),
   }
   await updateEntry(ledgerName, entry)
   return redirect(`/${ledgerName}`)
