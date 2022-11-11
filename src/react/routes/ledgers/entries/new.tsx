@@ -1,6 +1,6 @@
 import React from 'react'
 import type { ActionFunction } from '@remix-run/router'
-import { addEntry, Entry } from '../../../data'
+import { addEntry, Entry } from '../../../../data/local'
 import Form from './form'
 
 export const action: ActionFunction = async ({ request, params }) => {

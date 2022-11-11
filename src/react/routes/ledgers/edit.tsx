@@ -1,7 +1,7 @@
 import React from 'react'
 import { Form, useLoaderData, redirect, useNavigate } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
-import { updateLedger, getLedgers } from '../../data'
+import { updateLedger, getLedgers } from '../../../data/local'
 import EditForm from './form'
 
 interface Data {
