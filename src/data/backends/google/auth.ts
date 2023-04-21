@@ -99,22 +99,32 @@ async function loadGoogleIdentityServices(): Promise<google.accounts.oauth2.Toke
   return tokenClient
 }
 
+type gapiAndTokenClient = readonly [typeof gapi, typeof tokenClient]
+let loadLock: Promise<gapiAndTokenClient>
+
 /**
  * Fetch Google API (gapi) and Google Identity Services (gis) by adding new
  * `<script>` tags to page with {@link loadGapi} and {@link loadGoogleIdentityServices}.
  *
  * Can be called idempotently without adding duplicate `<script>` tags to page;
  * will immediately return already-loaded `gapi` and `tokenClient` if available.
+ *
+ * Uses {@link loadLock} to enable multiple calls to fire in parallel
+ * without accidentally adding duplicate `script` tags.
  */
-export async function load() {
-  const [gapi, tokenClient] = await Promise.all([
-    loadGapi(),
-    loadGoogleIdentityServices(),
-  ])
-  if (gapi.client.getToken() !== null) {
-    await initWorker()
-  }
-  return [gapi, tokenClient] as const
+export async function load(): Promise<gapiAndTokenClient> {
+  if (loadLock) return await loadLock
+  loadLock = new Promise(async resolve => {
+    const [gapi, tokenClient] = await Promise.all([
+      loadGapi(),
+      loadGoogleIdentityServices(),
+    ])
+    if (gapi.client.getToken() !== null) {
+      await initWorker()
+    }
+    resolve([gapi, tokenClient] as const)
+  })
+  return await loadLock
 }
 
 async function initWorker() {

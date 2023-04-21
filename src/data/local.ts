@@ -109,6 +109,9 @@ async function set<T>(key: string, value: T, sync = true): Promise<T> {
   return ret
 }
 
+/**
+ * Add an empty ledger to the local data store and skip syncing web workers
+ */
 export async function addEmptyLedger(name: string) {
   const normalized = await normalizeLedgerName(name)
   await store.setItem(normalized, [])
@@ -161,7 +164,7 @@ export async function updateLedger({ oldName, newName }: { oldName: string, newN
 
 export async function removeLedger(name: string) {
   if (reservedKeys.includes(name)) {
-    throw new Error(`The name "${name}" is reserved for internal use; please pick something else.`)
+    throw new Error(`The name "${name}" is reserved for internal use; you cannot remove this data.`)
   }
   await store.removeItem(name)
   syncWorkers()
@@ -182,7 +185,7 @@ export async function addEntry(toLedger: string, entry: UserFacingEntry | Entry,
     ...entry,
     created: now,
     updated: now,
-  } as Entry
+  }
   await set(toLedger, [...ledger, fullEntry], sync)
 }
 

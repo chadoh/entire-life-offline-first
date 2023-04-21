@@ -11,23 +11,25 @@ import {
 } from '../../local'
 
 onmessage = async function (e) {
-  try {
-    if (e.data === 'sync') {
-      await fullSync()
-      postMessage('synced')
-    }
-  } catch (e: unknown) {
-    if (!(e instanceof StaleAuthToken)) {
-      throw e
-    }
-    // if it IS because of a stale auth token, do nothing. auth token will be refreshed and worker will be re-called soon.
+  if (e.data === 'sync') {
+    await fullSync()
+    postMessage('synced')
   }
 }
 
 async function fullSync() {
-  await grabNewLedgersFromGoogle()
-  for (const ledger of await getLedgers()) {
-    await syncLedgerWithSpreadsheet(ledger)
+  try {
+    await grabNewLedgersFromGoogle()
+    for (const ledger of await getLedgers()) {
+      await syncLedgerWithSpreadsheet(ledger)
+    }
+  } catch (e: unknown) {
+    console.log('ran into an error while syncing:', e)
+    if (!(e instanceof StaleAuthToken)) {
+      console.log('rethrowing')
+      throw e
+    }
+    // if it IS because of a stale auth token, do nothing. auth token will be refreshed and worker will be re-called soon.
   }
 }
 
@@ -120,6 +122,10 @@ column names and positions the same! And if you edit a row, never modify the
 'created' value--that's what Entire.Life uses to identity rows.  Otherwise, have
 fun! Add, edit, and delete rows, and you'll see those changes in Entire.Life.
 
+(When adding rows, just leave 'created' blank. Next time you log into
+Entire.Life, it will know these rows are new, and it will fill in the 'created'
+date for you.)
+
 Neat!
   `], { type: 'text/plain' }))
 
@@ -168,6 +174,7 @@ async function findOrCreateFolderId(): Promise<string> {
   })
   return await findOrCreateLock
 }
+
 async function syncLedgerWithSpreadsheet(name: string) {
   await updateLedgerFromSpreadsheet(name)
   await pushLedgerToSpreadsheet(name)
