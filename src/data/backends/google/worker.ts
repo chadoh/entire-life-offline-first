@@ -20,9 +20,14 @@ onmessage = async function (e) {
 async function fullSync() {
   try {
     await grabNewLedgersFromGoogle()
-    for (const ledger of await getLedgers()) {
-      await syncLedgerWithSpreadsheet(ledger)
-    }
+    const ledgers = await getLedgers()
+    ledgers.reduce(
+      async (prevLedgerSync, ledger) => {
+        await prevLedgerSync
+        await syncLedgerWithSpreadsheet(ledger)
+      },
+      Promise.resolve()
+    )
   } catch (e: unknown) {
     console.log('ran into an error while syncing:', e)
     if (!(e instanceof StaleAuthToken)) {
@@ -48,31 +53,35 @@ async function grabNewLedgersFromGoogle() {
   if (result.files.length === 0) return
 
   const currentLedgers = await getLedgers()
-  for (const { name } of result.files) {
-    if (!currentLedgers.find(l => l === name)) {
-      try {
-        await addEmptyLedger(name)
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e)
-        const newName = prompt(`Error fetching data from Google! ${message} Please pick a new name:`)
-        if (!newName) return
+  result.files.reduce(
+    async (prev, { name }) => {
+      await prev
+      if (!currentLedgers.find(l => l === name)) {
         try {
-          await Promise.all([
-            // TODO: rename G Sheet
-            addEmptyLedger(newName),
-          ])
+          await addEmptyLedger(name)
         } catch (e: unknown) {
           const message = e instanceof Error ? e.message : String(e)
-          const newName = prompt(`That name didn't work either! ${message} One more try:`)
+          const newName = prompt(`Error fetching data from Google! ${message} Please pick a new name:`)
           if (!newName) return
-          await Promise.all([
-            // TODO: rename G Sheet
-            addEmptyLedger(newName),
-          ])
+          try {
+            await Promise.all([
+              // TODO: rename G Sheet
+              addEmptyLedger(newName),
+            ])
+          } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : String(e)
+            const newName = prompt(`That name didn't work either! ${message} One more try:`)
+            if (!newName) return
+            await Promise.all([
+              // TODO: rename G Sheet
+              addEmptyLedger(newName),
+            ])
+          }
         }
       }
-    }
-  }
+    },
+    Promise.resolve()
+  )
 }
 
 let folderId: string
@@ -180,43 +189,52 @@ async function syncLedgerWithSpreadsheet(name: string) {
   await pushLedgerToSpreadsheet(name)
 }
 
+async function addOrUpdateEntryFromRow(ledger: string, row: string[]): Promise<void> {
+  // TODO use `prompt` to ask for better name
+  const date = row[0]!
+  const emoji = row[1]!
+  const title = row[2]!
+  const body = row[3]!
+  const created = row[4] && parseInt(row[4])
+  const updated = row[5] && parseInt(row[5])
+
+  // if `created` not set, this was added in Google Sheets; save it locally
+  if (!created) {
+    await addEntry(ledger, { date, emoji, title, body }, false)
+    return;
+  }
+
+  // otherwise, may still have been added in G Sheets; try to find it
+  const current = (await loadLedgerGuarded(ledger)).find(e => e.created === created)
+
+  // alright, new data from G Sheets, add it locally
+  if (!current) {
+    await addEntry(ledger, { date, emoji, title, body, created, updated: updated || created }, false)
+    return
+  }
+
+  // ok, we already know about it locally, let's see if it needs to be updated
+  if (current.date !== date || current.emoji !== emoji || current.title !== title || current.body !== body) {
+    await updateEntry(ledger, { date, emoji, title, body, created })
+  }
+}
+
 async function updateLedgerFromSpreadsheet(name: string) {
-  const localData = await loadLedgerGuarded(name)
   const spreadsheet = await findOrCreateSpreadsheet(name)
   const { result: { values: sheetData } } = await grab<{ values: string[][] }>(
     `https://content-sheets.googleapis.com/v4/spreadsheets/${spreadsheet.id}/values/Sheet1!A1%3AZ1000`,
     await headers(),
   )
 
-  for (const row of sheetData.slice(1)) {
-    // TODO use `prompt` to ask for better name
-    const date = row[0]!
-    const emoji = row[1]!
-    const title = row[2]!
-    const body = row[3]!
-    const created = row[4] && parseInt(row[4])
-    const updated = row[5] && parseInt(row[5])
+  if (!sheetData) return
 
-    // if `created` not set, this was added in Google Sheets; save it locally
-    if (!created) {
-      await addEntry(name, { date, emoji, title, body }, false)
-      return;
-    }
-
-    // otherwise, may still have been added in G Sheets; try to find it
-    const current = localData.find(e => e.created === created)
-
-    // alright, new data from G Sheets, add it locally
-    if (!current) {
-      await addEntry(name, { date, emoji, title, body, created, updated: updated || created }, false)
-      return
-    }
-
-    // ok, we already know about it locally, let's see if it needs to be updated
-    if (current.date !== date || current.emoji !== emoji || current.title !== title || current.body !== body) {
-      await updateEntry(name, { date, emoji, title, body, created })
-    }
-  }
+  sheetData.slice(1).reduce(
+    async (prevRowUpdate, row) => {
+      await prevRowUpdate
+      await addOrUpdateEntryFromRow(name, row)
+    },
+    Promise.resolve()
+  )
 }
 
 async function pushLedgerToSpreadsheet(name: string) {
