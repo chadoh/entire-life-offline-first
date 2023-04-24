@@ -128,13 +128,12 @@ export async function load(): Promise<gapiAndTokenClient> {
 }
 
 async function initWorker() {
-  const worker = await findOrCreateWorker('google')
-  worker.onmessage = async (e) => {
+  const worker = await findOrCreateWorker('google', async e => {
     if (e.data === 'authError') {
       await refreshAccessToken()
       worker.postMessage('sync')
     }
-  }
+  })
 }
 
 export async function signIn(callback?: () => void) {

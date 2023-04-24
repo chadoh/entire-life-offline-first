@@ -99,13 +99,33 @@ function syncWorkers() {
 }
 
 /**
+ * Subscribe to this key in a window.addEventListener to be notified of all data changes
+ */
+export const DATA_UPDATED_EVENT_KEY = 'data-updated'
+
+/**
+ * Event to dispatch every time data changes
+ */
+export const DATA_UPDATED_EVENT = new Event(DATA_UPDATED_EVENT_KEY)
+
+
+/**
  * Set a value to the local data store and post `sync` message to all `window.workers`
  * 
  * Turn off syncing by passing `sync: false`
+ *
+ * Broadcasts a {@type DATA_UPDATED_EVENT} when data changes, accounting for
+ * possibility that `set` is invoked from a worker (see related logic in
+ * `findOrCreateWorker`), so that subscribers can stay up-to-date.
  */
 async function set<T>(key: string, value: T, sync = true): Promise<T> {
   const ret = await store.setItem(key, value)
   if (sync) syncWorkers()
+  if (typeof window === 'undefined') {
+    postMessage(DATA_UPDATED_EVENT_KEY)
+  } else {
+    window.dispatchEvent(DATA_UPDATED_EVENT)
+  }
   return ret
 }
 
@@ -257,5 +277,17 @@ async function clearOldestRecentDeletion() {
     await store.removeItem(RECENTLY_DELETED)
   } else {
     await store.setItem(RECENTLY_DELETED, current.slice(1))
+  }
+}
+
+/**
+ * Subscribe to all data changes, calling `onChange` each time
+ *
+ * Returns a function which will unsubscribe.
+ */
+export function subscribe(onChange: () => void): () => void {
+  window.addEventListener(DATA_UPDATED_EVENT_KEY, onChange)
+  return function unsubscribe() {
+    window.removeEventListener(DATA_UPDATED_EVENT_KEY, onChange)
   }
 }

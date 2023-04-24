@@ -9,12 +9,14 @@ import {
 import type { LoaderFunction } from '@remix-run/router'
 import { getLedgers } from '../../../data/local'
 import Login from '../../components/login'
+import { useDataSubscription } from '../../hooks'
 
 export const loader: LoaderFunction = async (): Promise<string[]> => {
   return getLedgers()
 }
 
-function App() {
+function Root() {
+  useDataSubscription()
   const ledgers = useLoaderData() as Awaited<string[]>
   const params = useParams()
   return (
@@ -66,4 +68,4 @@ function App() {
   )
 }
 
-export const element = <App />
+export const element = <Root />

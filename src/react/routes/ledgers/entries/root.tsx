@@ -2,6 +2,7 @@ import React from 'react'
 import { useLoaderData, Form, Outlet, NavLink } from 'react-router-dom'
 import type { LoaderFunction } from '@remix-run/router'
 import { get, Entry } from '../../../../data/local'
+import { useDataSubscription } from '../../../hooks'
 
 export const loader: LoaderFunction = async ({ params }): Promise<Entry[]> => {
   const name = params.ledgerName as string
@@ -16,6 +17,7 @@ export const loader: LoaderFunction = async ({ params }): Promise<Entry[]> => {
 }
 
 function Entries() {
+  useDataSubscription()
   const entries = useLoaderData() as Entry[]
   return (
     <>

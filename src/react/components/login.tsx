@@ -1,5 +1,5 @@
 import React from 'react'
-import { google, findOrCreateWorker } from '../../data'
+import { google } from '../../data'
 
 export default function Login() {
   const [wantsGoogle, setWantsGoogle] = React.useState(false)

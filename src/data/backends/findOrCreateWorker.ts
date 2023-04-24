@@ -1,3 +1,5 @@
+import { DATA_UPDATED_EVENT, DATA_UPDATED_EVENT_KEY } from '../local'
+
 if (!window.Worker) {
   throw new Error('WebWorkers not supported 😞 \n\nGet a better browser, friend!')
 }
@@ -14,13 +16,22 @@ if (!window.Worker) {
  * 
  * @param type must match one of the folders in `src/data/backends`, such as `google`
  */
-export async function findOrCreateWorker(type: string): Promise<Worker> {
+export async function findOrCreateWorker(
+  type: string,
+  onMessage: (e: MessageEvent<any>) => Promise<void>
+): Promise<Worker> {
   window.workers = window.workers ?? {}
   if (window.workers[type]) return window.workers[type]!
 
   const worker = new Worker(new URL('./' + type + '/worker.ts', import.meta.url), {
     type: 'module',
   })
+  worker.onmessage = async e => {
+    if (e.data === DATA_UPDATED_EVENT_KEY) {
+      window.dispatchEvent(DATA_UPDATED_EVENT)
+    }
+    await onMessage(e)
+  }
   window.workers[type] = worker
   worker.postMessage('sync')
   return worker
