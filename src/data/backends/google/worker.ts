@@ -6,6 +6,7 @@ import {
   updateEntry,
   getGoogleToken,
   getLedgers,
+  getRecentlyDeleted,
   get as getLedger,
   entryKeys
 } from '../../local'
@@ -204,7 +205,11 @@ async function addOrUpdateEntryFromRow(ledger: string, row: string[]): Promise<v
     return;
   }
 
-  // otherwise, may still have been added in G Sheets; try to find it
+  // if recently deleted; don't re-add
+  const recentlyDeleted = (await getRecentlyDeleted(ledger)).find(e => e.created === e.created)
+  if (recentlyDeleted) return
+
+  // data may have been updated in Google Sheets; try to match with existing
   const current = (await loadLedgerGuarded(ledger)).find(e => e.created === created)
 
   // alright, new data from G Sheets, add it locally
@@ -237,6 +242,15 @@ async function updateLedgerFromSpreadsheet(name: string) {
   )
 }
 
+/**
+ * Push all entries in a ledger to its spreadsheet.
+ *
+ * Overwrites the entire spreadsheet with current ledger entries, and deletes
+ * the number of rows currently in the `recentlyDeleted` list. This is
+ * currently considered safe because we first pull data FROM Google Sheets, so
+ * we know we already have up-to-date data. If this causes problems in the
+ * future, we can use a row-by-row approach.
+ */
 async function pushLedgerToSpreadsheet(name: string) {
   const entries = await loadLedgerGuarded(name)
   if (!entries[0]) {
@@ -252,6 +266,7 @@ async function pushLedgerToSpreadsheet(name: string) {
 
   const spreadsheet = await findOrCreateSpreadsheet(name)
 
+  // update spreadsheet with all current values
   await grab(
     `https://content-sheets.googleapis.com/v4/spreadsheets/${spreadsheet.id}/values:batchUpdate?alt=json`,
     {
@@ -266,6 +281,30 @@ async function pushLedgerToSpreadsheet(name: string) {
       })
     }
   )
+
+  // remove recent deletions
+  const recentlyDeleted = await getRecentlyDeleted(name)
+  if (recentlyDeleted.length) {
+    await grab(
+      `https://content-sheets.googleapis.com/v4/spreadsheets/${spreadsheet.id}:batchUpdate`,
+      {
+        method: 'POST',
+        ...await headers(),
+        body: JSON.stringify({
+          requests: [{
+            deleteDimension: {
+              range: {
+                dimension: "ROWS",
+                sheetId: 0,
+                startIndex: rows.length,
+                endIndex: rows.length + recentlyDeleted.length,
+              }
+            }
+          }]
+        })
+      }
+    )
+  }
 }
 
 async function loadLedgerGuarded(name: string): Promise<Entry[]> {

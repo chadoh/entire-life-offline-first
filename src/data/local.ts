@@ -37,6 +37,7 @@ export type Entry = UserFacingEntry & {
 interface RecentDeletion {
   ledger: string
   entry: Entry
+  deletedAt: number // `Date.now()` timestamp
 }
 
 type RecentlyDeleted = RecentDeletion[]
@@ -83,6 +84,15 @@ export async function setGoogleToken(token: google.accounts.oauth2.TokenResponse
  */
 export async function getGoogleToken(): Promise<undefined | google.accounts.oauth2.TokenResponse> {
   return await store.getItem(GOOGLE_ACCESS_TOKEN) ?? undefined
+}
+
+/**
+ * Get recently deleted entries for a ledger
+ */
+export async function getRecentlyDeleted(fromLedger: string): Promise<Entry[]> {
+  return (await get(RECENTLY_DELETED))
+    .filter(({ ledger }) => ledger === fromLedger)
+    .map(({ entry }) => entry)
 }
 
 /**
@@ -259,11 +269,12 @@ export async function deleteEntry(toLedger: string, entryCreated: number) {
     {
       ledger: toLedger,
       entry: oldEntry,
+      deletedAt: Date.now(),
     }
   ])
 
   // clear recent deletion after one minute
-  setTimeout(clearOldestRecentDeletion, 60000)
+  setTimeout(clearOldestRecentDeletion, 20000)
 
   await set(toLedger, ledger.filter(
     e => e.created !== entryCreated
