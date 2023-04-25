@@ -22,7 +22,7 @@ async function fullSync() {
   try {
     await grabNewLedgersFromGoogle()
     const ledgers = await getLedgers()
-    ledgers.reduce(
+    await ledgers.reduce(
       async (prevLedgerSync, ledger) => {
         await prevLedgerSync
         await syncLedgerWithSpreadsheet(ledger)
@@ -54,7 +54,7 @@ async function grabNewLedgersFromGoogle() {
   if (result.files.length === 0) return
 
   const currentLedgers = await getLedgers()
-  result.files.reduce(
+  await result.files.reduce(
     async (prev, { name }) => {
       await prev
       if (!currentLedgers.find(l => l === name)) {
@@ -233,7 +233,7 @@ async function updateLedgerFromSpreadsheet(name: string) {
 
   if (!sheetData) return
 
-  sheetData.slice(1).reduce(
+  await sheetData.slice(1).reduce(
     async (prevRowUpdate, row) => {
       await prevRowUpdate
       await addOrUpdateEntryFromRow(name, row)

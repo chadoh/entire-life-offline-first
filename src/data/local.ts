@@ -144,7 +144,7 @@ async function set<T>(key: string, value: T, sync = true): Promise<T> {
  */
 export async function addEmptyLedger(name: string) {
   const normalized = await normalizeLedgerName(name)
-  await store.setItem(normalized, [])
+  await set(normalized, [], false)
 }
 
 export async function addLedger({ name, dob }: { name: string, dob: string /* iso8601 */ }) {
