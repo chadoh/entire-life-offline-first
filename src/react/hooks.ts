@@ -1,5 +1,5 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRevalidator } from 'react-router-dom'
 import { subscribe } from '../data/local'
 
 export function usePrev<T>(item: T): undefined | T {
@@ -14,10 +14,10 @@ export function usePrev<T>(item: T): undefined | T {
  * Refresh data from this route's `loader` when data changes in the local data store.
  */
 export function useDataSubscription() {
-  const navigate = useNavigate()
+  const revalidator = useRevalidator()
   React.useEffect(() => {
     return subscribe(() => {
-      navigate('.', { replace: true })
+      revalidator.revalidate()
     })
   }, [])
 }
