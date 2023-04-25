@@ -30,12 +30,6 @@ export default function Login() {
         >
           Sign Out
         </button>
-        <button
-          style={{ float: 'right', marginLeft: '0.5em' }}
-          onClick={() => google.signIn()}
-        >
-          Refresh
-        </button>
       </>
     )
   }
