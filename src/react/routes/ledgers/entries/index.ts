@@ -17,11 +17,11 @@ export default {
         },
         {
           ...edit,
-          path: 'edit/:entryId',
+          path: 'edit/:entryCreated',
         },
         {
           ...destroy,
-          path: 'destroy/:entryId'
+          path: 'destroy/:entryCreated'
         }
       ]
     }

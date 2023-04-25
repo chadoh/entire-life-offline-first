@@ -1,7 +1,8 @@
 import React from 'react'
 import { useLoaderData, redirect } from 'react-router-dom'
 import type { ActionFunction, LoaderFunction } from '@remix-run/router'
-import { addLedger, getLedgers } from '../../data'
+import { addLedger, getLedgers } from '../../../data/local'
+import { useDataSubscription } from '../../hooks'
 import Form from './form'
 
 export const loader: LoaderFunction = async ({ request }): Promise<string[] | Response> => {
@@ -20,6 +21,7 @@ export const action: ActionFunction = async ({ request }) => {
 }
 
 function New() {
+  useDataSubscription()
   const ledgers = useLoaderData() as Awaited<string[]>
   return <Form ledgers={ledgers} />
 }

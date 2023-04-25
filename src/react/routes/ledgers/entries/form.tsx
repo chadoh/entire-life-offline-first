@@ -1,7 +1,7 @@
 import React from 'react'
 import { useFetcher } from 'react-router-dom'
 import { usePrev } from '../../../hooks'
-import type { Entry } from '../../../data'
+import type { Entry } from '../../../../data/local'
 
 export default function EntryForm(entry: Partial<Entry>) {
   const fetcher = useFetcher()
@@ -18,6 +18,9 @@ export default function EntryForm(entry: Partial<Entry>) {
 
   return (
     <fetcher.Form method="post" ref={form}>
+      {entry.created && (
+        <input type="hidden" name="created" value={entry.created} />
+      )}
       <fieldset disabled={fetcher.state !== 'idle'}>
         <p>
           <input name="title" autoFocus required defaultValue={entry.title} />
