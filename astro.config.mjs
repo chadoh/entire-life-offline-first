@@ -7,4 +7,7 @@ import react from "@astrojs/react";
 export default defineConfig({
   site: 'https://new.entire.life',
   integrations: [react()],
+  vite: {
+    sourcemap: true,
+  },
 });
