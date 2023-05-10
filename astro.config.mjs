@@ -8,6 +8,15 @@ export default defineConfig({
   site: 'https://new.entire.life',
   integrations: [react()],
   vite: {
-    sourcemap: true,
+    build: {
+      sourcemap: true,
+      lib: {
+        // Could also be a dictionary or array of multiple entry points
+        entry: new URL('src/data/backends/google/worker.ts', import.meta.url),
+        formats: ['es'],
+        // set fileName to, for example, `googleWorker.js`
+        fileName: 'googleWorker',
+      },
+    },
   },
 });
